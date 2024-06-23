@@ -1,125 +1,83 @@
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
-using Azure.Storage.Blobs;
 using EventManagementApi.DTO;
-using EventManagementApi.Entity;
-using EventManagementApi.Database;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Graph;
+using Microsoft.Graph.Models;
+using Microsoft.Identity.Web.Resource;
 
 namespace EventManagementApi.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/v1/[controller]")]
     [ApiController]
     public class AccountsController : ControllerBase
     {
+        private readonly GraphServiceClient _graphServiceClient;
         private readonly IConfiguration _configuration;
-        private readonly ApplicationDbContext _context;
-        private readonly UserManager<ApplicationUser> _userManager;
-        private readonly BlobServiceClient _blobServiceClient;
 
-        public AccountsController(
-            IConfiguration configuration,
-            ApplicationDbContext context,
-            UserManager<ApplicationUser> userManager,
-            BlobServiceClient blobServiceClient)
+        public AccountsController(GraphServiceClient graphServiceClient, IConfiguration configuration)
         {
+            _graphServiceClient = graphServiceClient;
             _configuration = configuration;
-            _context = context;
-            _userManager = userManager;
-            _blobServiceClient = blobServiceClient;
         }
 
-        // Register a new user (Accessible by all, typically used for user self-registration)
         [HttpPost("register")]
-        [AllowAnonymous]
-        public async Task<IActionResult> Register([FromBody] AccountCreateDto model)
+        [Authorize]
+        [RequiredScopeOrAppPermission(
+           RequiredScopesConfigurationKey = "EntraId:Scopes:Write",
+           RequiredAppPermissionsConfigurationKey = "EntraId:AppPermissions:Write"
+       )]
+        public async Task<IActionResult> Register([FromBody] UserRegistrationDto registrationDto)
         {
-            var user = new ApplicationUser
+            var tenantId = _configuration["EntraId:TenantId"];
+            var user = new User
             {
-                UserName = model.Email,
-                Email = model.Email,
-                FullName = model.Email
+                AccountEnabled = true,
+                DisplayName = registrationDto.DisplayName,
+                MailNickname = registrationDto.UserPrincipalName,
+                UserPrincipalName = $"{registrationDto.UserPrincipalName}@{_configuration["EntraId:Domain"]}",
+                PasswordProfile = new PasswordProfile
+                {
+                    ForceChangePasswordNextSignIn = false,
+                    Password = registrationDto.Password
+                }
             };
-
-            var result = await _userManager.CreateAsync(user, model.Password);
-
-            if (result.Succeeded)
-            {
-                await _userManager.AddToRoleAsync(user, model.Role);
-                return Ok(new { Message = "User registered successfully" });
-            }
-
-            return BadRequest(result.Errors);
+            await _graphServiceClient.Users.GetAsync();
+            return Ok(new { Message = "User registered successfully" });
         }
 
-        // General account management (Accessible by authenticated users)
+        // Get user profile
         [HttpGet("profile")]
-        [Authorize()]
+        [Authorize]
         public async Task<IActionResult> GetProfile()
         {
-            var user = await _userManager.GetUserAsync(User);
+            var userId = User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value;
+            var user = await _graphServiceClient.Users[userId].GetAsync();
 
             if (user == null)
             {
                 return NotFound();
             }
 
-            return Ok(new { user.UserName, user.Email, user.FullName });
+            return Ok(new { user.DisplayName, user.UserPrincipalName, user.Mail });
         }
 
-        // Update account details (Accessible by authenticated users)
+        // Update user profile
         [HttpPut("update")]
-        [Authorize()]
-        public async Task<IActionResult> UpdateProfile([FromBody] AccountUpdateDto model)
+        [Authorize]
+        public async Task<IActionResult> UpdateProfile([FromBody] UserProfileUpdateDto model)
         {
-            var user = await _userManager.GetUserAsync(User);
+            var userId = User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value;
 
-            if (user == null)
+            var user = new User
             {
-                return NotFound();
-            }
+                DisplayName = model.DisplayName,
+                MailNickname = model.UserPrincipalName
+            };
 
-            user.Email = model.Email;
-            user.FullName = model.FullName;
+            await _graphServiceClient.Users[userId].PatchAsync(user);
 
-            var result = await _userManager.UpdateAsync(user);
-
-            if (result.Succeeded)
-            {
-                return Ok(new { Message = "User profile updated successfully" });
-            }
-
-            return BadRequest(result.Errors);
-        }
-
-        // Admin-related tasks (Accessible by Admins)
-        [HttpGet("users")]
-        [Authorize(Roles = "Admin")]
-        public IActionResult GetUsers()
-        {
-            var users = _context.Users.Select(u => new { u.Id, u.UserName, u.Email, u.FullName }).ToList();
-            return Ok(users);
-        }
-
-        [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> DeleteUser(Guid Id)
-        {
-            var user = await _userManager.FindByIdAsync(id);
-
-            if (user == null)
-            {
-                return NotFound();
-            }
-
-            var result = await _userManager.DeleteAsync(user);
-
-            if (result.Succeeded)
-            {
-                return Ok(new { Message = $"User with ID {id} deleted successfully" });
-            }
-
-            return BadRequest(result.Errors);
+            return Ok(new { Message = "User profile updated successfully" });
         }
     }
+
 }
