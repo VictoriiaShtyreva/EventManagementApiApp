@@ -16,7 +16,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddSingleton<RoleService>();
 // Seed Data
-// builder.Services.AddScoped<SeedData>();
+builder.Services.AddScoped<SeedData>();
 
 // Configure Entity Framework with PostgreSQL
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -94,11 +94,11 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// using (var scope = app.Services.CreateScope())
-// {
-//     var services = scope.ServiceProvider;
-//     var seeder = services.GetRequiredService<SeedData>();
-//     await seeder.SeedDataAsync();
-// }
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var seeder = services.GetRequiredService<SeedData>();
+    await seeder.SeedDataAsync();
+}
 
 app.Run();
