@@ -20,6 +20,7 @@ namespace EventManagementApi.Controllers
             _configuration = configuration;
         }
 
+        // Register a new user
         [HttpPost("register")]
         [Authorize]
         [RequiredScopeOrAppPermission(
@@ -41,8 +42,37 @@ namespace EventManagementApi.Controllers
                     Password = registrationDto.Password
                 }
             };
-            await _graphServiceClient.Users.GetAsync();
-            return Ok(new { Message = "User registered successfully" });
+
+            // Create the user
+            var createdUser = await _graphServiceClient.Users.PostAsync(user);
+
+            if (createdUser == null || createdUser.Id == null)
+            {
+                return BadRequest("Failed to create user.");
+            }
+
+            // Assign role to the user
+            var appRoleAssignment = new AppRoleAssignment
+            {
+                PrincipalId = Guid.Parse(createdUser.Id),
+                ResourceId = Guid.Parse(_configuration["EntraId:ClientId"] ?? throw new InvalidOperationException("ClientId configuration is missing")),
+                AppRoleId = GetRoleIdByName("User") // Assign "User" role by default
+            };
+
+            await _graphServiceClient.Users[createdUser.Id].AppRoleAssignments.PostAsync(appRoleAssignment);
+
+            return Ok(new { Message = "User registered successfully with role assigned" });
+        }
+
+        private Guid GetRoleIdByName(string roleName)
+        {
+            return roleName switch
+            {
+                "Admin" => Guid.Parse("0102246e-4126-4df6-8908-5e85879af2df"),
+                "EventProvider" => Guid.Parse("1df7e13c-c41f-4a47-a097-ae78ffed3062"),
+                "User" => Guid.Parse("2f883966-3c87-4363-b367-7e86a7438018"),
+                _ => throw new ArgumentException("Invalid role name")
+            };
         }
 
         // Get user profile

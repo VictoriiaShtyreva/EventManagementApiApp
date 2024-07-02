@@ -1,41 +1,23 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Graph;
+using Microsoft.Graph.Models;
 using EventManagementApi.DTO;
-using EventManagementApi.Entity;
 
 namespace EventManagementApi.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/v1/[controller]")]
     [ApiController]
     [Authorize(Policy = "Admin")]
     public class RolesController : ControllerBase
     {
-        private readonly RoleManager<IdentityRole> _roleManager;
-        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly GraphServiceClient _graphServiceClient;
+        private readonly IConfiguration _configuration;
 
-        public RolesController(RoleManager<IdentityRole> roleManager, UserManager<ApplicationUser> userManager)
+        public RolesController(GraphServiceClient graphServiceClient, IConfiguration configuration)
         {
-            _roleManager = roleManager;
-            _userManager = userManager;
-        }
-
-        // Create a new role
-        [HttpPost("create")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> CreateRole([FromBody] RoleCreateDto model)
-        {
-            var roleExists = await _roleManager.RoleExistsAsync(model.RoleName);
-            if (!roleExists)
-            {
-                var result = await _roleManager.CreateAsync(new IdentityRole(model.RoleName));
-                if (result.Succeeded)
-                {
-                    return Ok(new { Message = "Role created successfully" });
-                }
-                return BadRequest(result.Errors);
-            }
-            return BadRequest(new { Message = "Role already exists" });
+            _graphServiceClient = graphServiceClient;
+            _configuration = configuration;
         }
 
         // Assign a role to a user
@@ -43,19 +25,21 @@ namespace EventManagementApi.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> AssignRole([FromBody] UserRoleUpdateDto model)
         {
-            var user = await _userManager.FindByIdAsync(model.UserId);
+            var user = await _graphServiceClient.Users[model.UserId].GetAsync();
             if (user == null)
             {
                 return NotFound(new { Message = "User not found" });
             }
 
-            var result = await _userManager.AddToRoleAsync(user, model.Role);
-            if (result.Succeeded)
+            var appRoleAssignment = new AppRoleAssignment
             {
-                return Ok(new { Message = "Role assigned successfully" });
-            }
+                PrincipalId = Guid.Parse(model.UserId!),
+                ResourceId = Guid.Parse(_configuration["EntraId:ClientId"] ?? throw new InvalidOperationException("ClientId configuration is missing")),
+                AppRoleId = GetRoleIdByName(model.Role ?? throw new ArgumentNullException(nameof(model.Role)))
+            };
 
-            return BadRequest(result.Errors);
+            await _graphServiceClient.Users[model.UserId].AppRoleAssignments.PostAsync(appRoleAssignment);
+            return Ok(new { Message = "Role assigned successfully" });
         }
 
         // Remove a role from a user
@@ -63,19 +47,33 @@ namespace EventManagementApi.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> RemoveRole([FromBody] UserRoleUpdateDto model)
         {
-            var user = await _userManager.FindByIdAsync(model.UserId);
+            var user = await _graphServiceClient.Users[model.UserId].GetAsync();
             if (user == null)
             {
                 return NotFound(new { Message = "User not found" });
             }
 
-            var result = await _userManager.RemoveFromRoleAsync(user, model.Role);
-            if (result.Succeeded)
+            var appRoleAssignments = await _graphServiceClient.Users[model.UserId].AppRoleAssignments.GetAsync();
+            var assignmentToRemove = appRoleAssignments.CurrentPage.Find(a => a.AppRoleId == GetRoleIdByName(model.Role ?? throw new ArgumentNullException(nameof(model.Role))));
+
+            if (assignmentToRemove == null)
             {
-                return Ok(new { Message = "Role removed successfully" });
+                return NotFound(new { Message = "Role assignment not found" });
             }
 
-            return BadRequest(result.Errors);
+            await _graphServiceClient.Users[model.UserId].AppRoleAssignments[assignmentToRemove.Id].DeleteAsync();
+            return Ok(new { Message = "Role removed successfully" });
+        }
+
+        private Guid GetRoleIdByName(string roleName)
+        {
+            return roleName switch
+            {
+                "Admin" => Guid.Parse("0102246e-4126-4df6-8908-5e85879af2df"),
+                "EventProvider" => Guid.Parse("1df7e13c-c41f-4a47-a097-ae78ffed3062"),
+                "User" => Guid.Parse("2f883966-3c87-4363-b367-7e86a7438018"),
+                _ => throw new ArgumentException("Invalid role name")
+            };
         }
     }
 }
