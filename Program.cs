@@ -8,11 +8,15 @@ using Microsoft.Graph;
 using EventManagementApi.Entities;
 using Azure.Identity;
 using Azure.Core;
+using EventManagementApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
 builder.Services.AddControllers();
+builder.Services.AddSingleton<RoleService>();
+// Seed Data
+// builder.Services.AddScoped<SeedData>();
 
 // Configure Entity Framework with PostgreSQL
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -44,10 +48,10 @@ builder.Services.AddAuthorization(options =>
 });
 
 // Configure Azure Blob Storage
-builder.Services.AddSingleton(s => new BlobServiceClient(builder.Configuration["BlobStorage:ConnectionString"]));
+// builder.Services.AddSingleton(s => new BlobServiceClient(builder.Configuration["BlobStorage:ConnectionString"]));
 
 // Configure Azure Service Bus
-builder.Services.AddSingleton(s => new ServiceBusClient(builder.Configuration["ServiceBus:ConnectionString"]));
+// builder.Services.AddSingleton(s => new ServiceBusClient(builder.Configuration["ServiceBus:ConnectionString"]));
 
 // Configure Azure Application Insights for monitoring and diagnostics
 // builder.Services.AddApplicationInsightsTelemetry(builder.Configuration["ApplicationInsights:ConnectionString"]);
@@ -62,27 +66,17 @@ builder.Services.AddSwaggerGen(c =>
     });
 
     // Add security definitions for Swagger
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    c.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
     {
-        In = ParameterLocation.Header,
-        Description = "Please enter into field the word 'Bearer' followed by a space and the JWT value",
+        Description = "Bearer token authentication",
         Name = "Authorization",
-        Type = SecuritySchemeType.OAuth2,
+        In = ParameterLocation.Header,
         Scheme = "Bearer"
-    });
+    }
+         );
 });
 
 var app = builder.Build();
-
-if (app.Environment.IsDevelopment())
-{
-    app.UseDeveloperExceptionPage();
-}
-else
-{
-    app.UseExceptionHandler("/Home/Error");
-    app.UseHsts();
-}
 
 // Add Swagger middleware
 app.UseSwagger();
@@ -93,11 +87,18 @@ app.UseSwaggerUI(c =>
 });
 
 // Middleware configurations
-app.UseHttpsRedirection();
 app.UseStaticFiles();
+app.UseHttpsRedirection();
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+// using (var scope = app.Services.CreateScope())
+// {
+//     var services = scope.ServiceProvider;
+//     var seeder = services.GetRequiredService<SeedData>();
+//     await seeder.SeedDataAsync();
+// }
 
 app.Run();

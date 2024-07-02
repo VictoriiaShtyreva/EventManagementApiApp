@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Graph;
 using Microsoft.Graph.Models;
 using EventManagementApi.DTO;
+using EventManagementApi.Services;
 
 namespace EventManagementApi.Controllers
 {
@@ -12,11 +13,13 @@ namespace EventManagementApi.Controllers
     public class RolesController : ControllerBase
     {
         private readonly GraphServiceClient _graphServiceClient;
+        private readonly RoleService _roleService;
         private readonly IConfiguration _configuration;
 
-        public RolesController(GraphServiceClient graphServiceClient, IConfiguration configuration)
+        public RolesController(GraphServiceClient graphServiceClient, RoleService roleService, IConfiguration configuration)
         {
             _graphServiceClient = graphServiceClient;
+            _roleService = roleService;
             _configuration = configuration;
         }
 
@@ -35,7 +38,7 @@ namespace EventManagementApi.Controllers
             {
                 PrincipalId = Guid.Parse(model.UserId!),
                 ResourceId = Guid.Parse(_configuration["EntraId:ClientId"] ?? throw new InvalidOperationException("ClientId configuration is missing")),
-                AppRoleId = GetRoleIdByName(model.Role ?? throw new ArgumentNullException(nameof(model.Role)))
+                AppRoleId = await _roleService.GetRoleIdByNameAsync(model.Role ?? throw new ArgumentNullException(nameof(model.Role)))
             };
 
             await _graphServiceClient.Users[model.UserId].AppRoleAssignments.PostAsync(appRoleAssignment);
@@ -43,7 +46,7 @@ namespace EventManagementApi.Controllers
         }
 
         // Remove a role from a user
-        [HttpPost("remove")]
+        [HttpDelete("remove")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> RemoveRole([FromBody] UserRoleUpdateDto model)
         {
@@ -53,8 +56,16 @@ namespace EventManagementApi.Controllers
                 return NotFound(new { Message = "User not found" });
             }
 
-            var appRoleAssignments = await _graphServiceClient.Users[model.UserId].AppRoleAssignments.GetAsync();
-            var assignmentToRemove = appRoleAssignments.CurrentPage.Find(a => a.AppRoleId == GetRoleIdByName(model.Role ?? throw new ArgumentNullException(nameof(model.Role))));
+            var appRoleAssignmentsPage = await _graphServiceClient.Users[model.UserId].AppRoleAssignments.GetAsync();
+            if (appRoleAssignmentsPage == null || appRoleAssignmentsPage.Value == null)
+            {
+                return NotFound(new { Message = "No role assignments found for this user" });
+            }
+
+            var appRoleAssignments = appRoleAssignmentsPage.Value;
+            var appRoleId = await _roleService.GetRoleIdByNameAsync(model.Role ?? throw new ArgumentNullException(nameof(model.Role)));
+
+            var assignmentToRemove = appRoleAssignments.FirstOrDefault(a => a.AppRoleId == appRoleId);
 
             if (assignmentToRemove == null)
             {
@@ -63,17 +74,6 @@ namespace EventManagementApi.Controllers
 
             await _graphServiceClient.Users[model.UserId].AppRoleAssignments[assignmentToRemove.Id].DeleteAsync();
             return Ok(new { Message = "Role removed successfully" });
-        }
-
-        private Guid GetRoleIdByName(string roleName)
-        {
-            return roleName switch
-            {
-                "Admin" => Guid.Parse("0102246e-4126-4df6-8908-5e85879af2df"),
-                "EventProvider" => Guid.Parse("1df7e13c-c41f-4a47-a097-ae78ffed3062"),
-                "User" => Guid.Parse("2f883966-3c87-4363-b367-7e86a7438018"),
-                _ => throw new ArgumentException("Invalid role name")
-            };
         }
     }
 }

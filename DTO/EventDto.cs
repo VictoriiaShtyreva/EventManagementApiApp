@@ -19,7 +19,7 @@ namespace EventManagementApi.DTO
 
     public class EventRegistrationDto
     {
-        public string? EventId { get; set; }
+        public Guid? EventId { get; set; }
         public string? UserId { get; set; }
     }
 }

@@ -3,7 +3,10 @@ using EventManagementApi.Entity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Cosmos;
-
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace EventManagementApi.Controllers
 {
@@ -62,11 +65,11 @@ namespace EventManagementApi.Controllers
 
         // Accessible by all authenticated users
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetEventById(string id)
+        public async Task<IActionResult> GetEventById(Guid id)
         {
             try
             {
-                var eventResponse = await _container.ReadItemAsync<Events>(id, new PartitionKey(id));
+                var eventResponse = await _container.ReadItemAsync<Events>(id.ToString(), new PartitionKey(id.ToString()));
                 return Ok(eventResponse.Resource);
             }
             catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
@@ -78,11 +81,11 @@ namespace EventManagementApi.Controllers
         // Accessible by Event Providers
         [HttpPut("{id}")]
         [Authorize(Policy = "EventProvider")]
-        public async Task<IActionResult> UpdateEvent(string id, [FromBody] EventUpdateDto updatedEventDto)
+        public async Task<IActionResult> UpdateEvent(Guid id, [FromBody] EventUpdateDto updatedEventDto)
         {
             try
             {
-                var eventResponse = await _container.ReadItemAsync<Events>(id, new PartitionKey(id));
+                var eventResponse = await _container.ReadItemAsync<Events>(id.ToString(), new PartitionKey(id.ToString()));
                 var eventToUpdate = eventResponse.Resource;
 
                 eventToUpdate.Name = updatedEventDto.Name;
@@ -102,11 +105,11 @@ namespace EventManagementApi.Controllers
         // Accessible by Admins
         [HttpDelete("{id}")]
         [Authorize(Policy = "Admin")]
-        public async Task<IActionResult> DeleteEvent(string id)
+        public async Task<IActionResult> DeleteEvent(Guid id)
         {
             try
             {
-                await _container.DeleteItemAsync<Events>(id, new PartitionKey(id));
+                await _container.DeleteItemAsync<Events>(id.ToString(), new PartitionKey(id.ToString()));
                 return Ok(new { Message = "Event deleted successfully" });
             }
             catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
@@ -118,7 +121,7 @@ namespace EventManagementApi.Controllers
         // User can register for an event
         [HttpPost("{id}/register")]
         [Authorize(Policy = "User")]
-        public async Task<IActionResult> RegisterForEvent(string id)
+        public async Task<IActionResult> RegisterForEvent(Guid id)
         {
             var userId = User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value;
 
@@ -135,11 +138,11 @@ namespace EventManagementApi.Controllers
         // User can unregister from an event
         [HttpDelete("{id}/unregister")]
         [Authorize(Policy = "User")]
-        public async Task<IActionResult> UnregisterFromEvent(string id)
+        public async Task<IActionResult> UnregisterFromEvent(Guid id)
         {
             var userId = User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value;
 
-            var partitionKey = new PartitionKey(id);
+            var partitionKey = new PartitionKey(id.ToString());
             var registration = _registrationContainer.GetItemLinqQueryable<EventRegistrations>()
                 .Where(r => r.EventId == id && r.UserId == userId)
                 .AsEnumerable()
@@ -150,9 +153,8 @@ namespace EventManagementApi.Controllers
                 return NotFound();
             }
 
-            await _registrationContainer.DeleteItemAsync<EventRegistrations>(registration.EventId!.ToString(), partitionKey);
+            await _registrationContainer.DeleteItemAsync<EventRegistrations>(registration.EventId.ToString(), partitionKey);
             return Ok(new { Message = "Unregistered from event successfully" });
-
         }
     }
 }

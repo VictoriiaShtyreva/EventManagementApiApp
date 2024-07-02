@@ -1,4 +1,5 @@
 using EventManagementApi.DTO;
+using EventManagementApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Graph;
@@ -13,11 +14,13 @@ namespace EventManagementApi.Controllers
     {
         private readonly GraphServiceClient _graphServiceClient;
         private readonly IConfiguration _configuration;
+        private readonly RoleService _roleService;
 
-        public AccountsController(GraphServiceClient graphServiceClient, IConfiguration configuration)
+        public AccountsController(GraphServiceClient graphServiceClient, IConfiguration configuration, RoleService roleService)
         {
             _graphServiceClient = graphServiceClient;
             _configuration = configuration;
+            _roleService = roleService;
         }
 
         // Register a new user
@@ -56,23 +59,12 @@ namespace EventManagementApi.Controllers
             {
                 PrincipalId = Guid.Parse(createdUser.Id),
                 ResourceId = Guid.Parse(_configuration["EntraId:ClientId"] ?? throw new InvalidOperationException("ClientId configuration is missing")),
-                AppRoleId = GetRoleIdByName("User") // Assign "User" role by default
+                AppRoleId = await _roleService.GetRoleIdByNameAsync("User") // Assign "User" role by default
             };
 
             await _graphServiceClient.Users[createdUser.Id].AppRoleAssignments.PostAsync(appRoleAssignment);
 
             return Ok(new { Message = "User registered successfully with role assigned" });
-        }
-
-        private Guid GetRoleIdByName(string roleName)
-        {
-            return roleName switch
-            {
-                "Admin" => Guid.Parse("0102246e-4126-4df6-8908-5e85879af2df"),
-                "EventProvider" => Guid.Parse("1df7e13c-c41f-4a47-a097-ae78ffed3062"),
-                "User" => Guid.Parse("2f883966-3c87-4363-b367-7e86a7438018"),
-                _ => throw new ArgumentException("Invalid role name")
-            };
         }
 
         // Get user profile
