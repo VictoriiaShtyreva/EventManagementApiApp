@@ -8,7 +8,7 @@ using Microsoft.Identity.Web.Resource;
 
 namespace EventManagementApi.Controllers
 {
-    [Route("api/v1/[controller]")]
+    [Route("api/v1/accounts")]
     [ApiController]
     public class AccountsController : ControllerBase
     {
@@ -25,7 +25,6 @@ namespace EventManagementApi.Controllers
 
         // Register a new user
         [HttpPost("register")]
-        [Authorize]
         [RequiredScopeOrAppPermission(
            RequiredScopesConfigurationKey = "EntraId:Scopes:Write",
            RequiredAppPermissionsConfigurationKey = "EntraId:AppPermissions:Write"
@@ -58,7 +57,7 @@ namespace EventManagementApi.Controllers
             var appRoleAssignment = new AppRoleAssignment
             {
                 PrincipalId = Guid.Parse(createdUser.Id),
-                ResourceId = Guid.Parse(_configuration["EntraId:ClientId"] ?? throw new InvalidOperationException("ClientId configuration is missing")),
+                ResourceId = Guid.Parse(_configuration["EntraId:ServicePrincipalId"] ?? throw new InvalidOperationException("ClientId configuration is missing")),
                 AppRoleId = await _roleService.GetRoleIdByNameAsync("User") // Assign "User" role by default
             };
 
@@ -99,6 +98,16 @@ namespace EventManagementApi.Controllers
             await _graphServiceClient.Users[userId].PatchAsync(user);
 
             return Ok(new { Message = "User profile updated successfully" });
+        }
+
+
+        // Delete a user
+        [HttpDelete("delete/{userId}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> DeleteUser(string userId)
+        {
+            await _graphServiceClient.Users[userId].DeleteAsync();
+            return Ok(new { Message = "User deleted successfully" });
         }
     }
 

@@ -15,8 +15,6 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddSingleton<RoleService>();
-// Seed Data
-builder.Services.AddScoped<SeedData>();
 
 // Configure Entity Framework with PostgreSQL
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -27,16 +25,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("EntraId"));
 
 // Configure Microsoft Graph SDK using Azure Identity
-var clientSecretCredential = new ClientSecretCredential(
-    builder.Configuration["EntraId:TenantId"],
-    builder.Configuration["EntraId:ClientId"],
-    builder.Configuration["EntraId:ClientSecret"]);
-
-builder.Services.AddSingleton<TokenCredential>(clientSecretCredential);
-builder.Services.AddSingleton<GraphServiceClient>(provider =>
+builder.Services.AddSingleton(provider =>
 {
-    var credential = provider.GetRequiredService<TokenCredential>();
-    return new GraphServiceClient(credential);
+    var configuration = provider.GetRequiredService<IConfiguration>();
+    var tenantId = configuration["EntraId:TenantId"];
+    var clientId = configuration["EntraId:ClientId"];
+    var clientSecret = configuration["EntraId:ClientSecret"];
+    var clientSecretCredential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+    return new GraphServiceClient(clientSecretCredential);
 });
 
 // Configure role-based authorization policies
@@ -93,12 +89,5 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-
-using (var scope = app.Services.CreateScope())
-{
-    var services = scope.ServiceProvider;
-    var seeder = services.GetRequiredService<SeedData>();
-    await seeder.SeedDataAsync();
-}
 
 app.Run();

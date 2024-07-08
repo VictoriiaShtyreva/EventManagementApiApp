@@ -3,14 +3,10 @@ using EventManagementApi.Entity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Cosmos;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace EventManagementApi.Controllers
 {
-    [Route("api/v1/[controller]")]
+    [Route("api/v1/events")]
     [ApiController]
     public class EventsController : ControllerBase
     {

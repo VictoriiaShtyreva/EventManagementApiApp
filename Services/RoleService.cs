@@ -4,6 +4,7 @@ namespace EventManagementApi.Services
 {
     public class RoleService
     {
+
         private readonly GraphServiceClient _graphServiceClient;
         private readonly IConfiguration _configuration;
 
@@ -15,16 +16,15 @@ namespace EventManagementApi.Services
 
         public async Task<Guid> GetRoleIdByNameAsync(string roleName)
         {
-            var servicePrincipal = await _graphServiceClient.ServicePrincipals[_configuration["EntraId:ClientId"]]
-                .GetAsync();
+            var servicePrincipalId = _configuration["EntraId:ServicePrincipalId"];
+            var servicePrincipal = await _graphServiceClient.ServicePrincipals["{servicePrincipalId}"].GetAsync();
 
             if (servicePrincipal == null || servicePrincipal.AppRoles == null)
             {
-                throw new ArgumentException("Service principal not found.");
+                throw new ArgumentException("Service principal not found or no roles defined.");
             }
 
             var appRole = servicePrincipal.AppRoles.FirstOrDefault(r => r.DisplayName!.Equals(roleName, StringComparison.OrdinalIgnoreCase));
-
             if (appRole == null || !appRole.Id.HasValue)
             {
                 throw new ArgumentException($"Role {roleName} not found.");

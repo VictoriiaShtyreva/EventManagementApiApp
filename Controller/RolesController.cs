@@ -7,9 +7,8 @@ using EventManagementApi.Services;
 
 namespace EventManagementApi.Controllers
 {
-    [Route("api/v1/[controller]")]
+    [Route("api/v1/roles")]
     [ApiController]
-    [Authorize(Policy = "Admin")]
     public class RolesController : ControllerBase
     {
         private readonly GraphServiceClient _graphServiceClient;
@@ -25,8 +24,8 @@ namespace EventManagementApi.Controllers
 
         // Assign a role to a user
         [HttpPost("assign")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> AssignRole([FromBody] UserRoleUpdateDto model)
+        [Authorize(Policy = "Admin")]
+        public async Task<IActionResult> AssignRole([FromBody] UserRoleDto model)
         {
             var user = await _graphServiceClient.Users[model.UserId].GetAsync();
             if (user == null)
@@ -37,18 +36,18 @@ namespace EventManagementApi.Controllers
             var appRoleAssignment = new AppRoleAssignment
             {
                 PrincipalId = Guid.Parse(model.UserId!),
-                ResourceId = Guid.Parse(_configuration["EntraId:ClientId"] ?? throw new InvalidOperationException("ClientId configuration is missing")),
+                ResourceId = Guid.Parse(_configuration["EntraId:ServicePrincipalId"] ?? throw new InvalidOperationException("ClientId configuration is missing")),
                 AppRoleId = await _roleService.GetRoleIdByNameAsync(model.Role ?? throw new ArgumentNullException(nameof(model.Role)))
             };
 
             await _graphServiceClient.Users[model.UserId].AppRoleAssignments.PostAsync(appRoleAssignment);
-            return Ok(new { Message = "Role assigned successfully" });
+            return Ok(new { Message = $"Role {model.Role} for {model.UserId} assigned successfully" });
         }
 
         // Remove a role from a user
         [HttpDelete("remove")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> RemoveRole([FromBody] UserRoleUpdateDto model)
+        [Authorize(Policy = "Admin")]
+        public async Task<IActionResult> RemoveRole([FromBody] UserRoleDto model)
         {
             var user = await _graphServiceClient.Users[model.UserId].GetAsync();
             if (user == null)
