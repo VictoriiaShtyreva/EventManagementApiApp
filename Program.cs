@@ -7,13 +7,21 @@ using Microsoft.OpenApi.Models;
 using Microsoft.Graph;
 using EventManagementApi.Entities;
 using Azure.Identity;
-using Azure.Core;
 using EventManagementApi.Services;
+using Swashbuckle.AspNetCore.Filters;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
-builder.Services.AddControllers();
+builder.Services.AddControllers(
+    Options =>
+    {
+        Options.SuppressAsyncSuffixInActionNames = false;
+    }
+);
+builder.Services.AddEndpointsApiExplorer();
+
+// Add Services
 builder.Services.AddSingleton<RoleService>();
 
 // Configure Entity Framework with PostgreSQL
@@ -43,6 +51,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("User", policy => policy.RequireRole("User"));
 });
 
+
 // Configure Azure Blob Storage
 // builder.Services.AddSingleton(s => new BlobServiceClient(builder.Configuration["BlobStorage:ConnectionString"]));
 
@@ -68,8 +77,9 @@ builder.Services.AddSwaggerGen(c =>
         Name = "Authorization",
         In = ParameterLocation.Header,
         Scheme = "Bearer"
-    }
-         );
+    });
+
+    c.OperationFilter<SecurityRequirementsOperationFilter>();
 });
 
 var app = builder.Build();

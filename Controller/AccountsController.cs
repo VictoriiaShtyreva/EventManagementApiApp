@@ -25,10 +25,6 @@ namespace EventManagementApi.Controllers
 
         // Register a new user
         [HttpPost("register")]
-        [RequiredScopeOrAppPermission(
-           RequiredScopesConfigurationKey = "EntraId:Scopes:Write",
-           RequiredAppPermissionsConfigurationKey = "EntraId:AppPermissions:Write"
-       )]
         public async Task<IActionResult> Register([FromBody] UserRegistrationDto registrationDto)
         {
             var tenantId = _configuration["EntraId:TenantId"];
@@ -57,29 +53,13 @@ namespace EventManagementApi.Controllers
             var appRoleAssignment = new AppRoleAssignment
             {
                 PrincipalId = Guid.Parse(createdUser.Id),
-                ResourceId = Guid.Parse(_configuration["EntraId:ServicePrincipalId"] ?? throw new InvalidOperationException("ClientId configuration is missing")),
+                ResourceId = Guid.Parse(_configuration["EntraId:ClientId"] ?? throw new InvalidOperationException("ClientId configuration is missing")),
                 AppRoleId = await _roleService.GetRoleIdByNameAsync("User") // Assign "User" role by default
             };
 
             await _graphServiceClient.Users[createdUser.Id].AppRoleAssignments.PostAsync(appRoleAssignment);
 
             return Ok(new { Message = "User registered successfully with role assigned" });
-        }
-
-        // Get user profile
-        [HttpGet("profile")]
-        [Authorize]
-        public async Task<IActionResult> GetProfile()
-        {
-            var userId = User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value;
-            var user = await _graphServiceClient.Users[userId].GetAsync();
-
-            if (user == null)
-            {
-                return NotFound();
-            }
-
-            return Ok(new { user.DisplayName, user.UserPrincipalName, user.Mail });
         }
 
         // Update user profile
