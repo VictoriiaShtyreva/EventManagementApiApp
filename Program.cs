@@ -1,36 +1,37 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Identity.Web;
-using Azure.Storage.Blobs;
-using Azure.Messaging.ServiceBus;
 using Microsoft.OpenApi.Models;
 using Microsoft.Graph;
 using EventManagementApi.Entities;
 using Azure.Identity;
-using EventManagementApi.Services;
 using Swashbuckle.AspNetCore.Filters;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
-builder.Services.AddControllers(
-    Options =>
-    {
-        Options.SuppressAsyncSuffixInActionNames = false;
-    }
-);
+builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// Add Services
-builder.Services.AddSingleton<RoleService>();
+// Configure CORS
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(
+        policy =>
+        {
+            policy.AllowAnyOrigin()
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        });
+});
 
 // Configure Entity Framework with PostgreSQL
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Configure authentication to use Azure AD Entra ID with JWT Bearer tokens
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("EntraId"));
+builder.Services.AddMicrosoftIdentityWebApiAuthentication(builder.Configuration.GetSection("EntraId"));
 
 // Configure Microsoft Graph SDK using Azure Identity
 builder.Services.AddSingleton(provider =>
@@ -51,7 +52,6 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("User", policy => policy.RequireRole("User"));
 });
 
-
 // Configure Azure Blob Storage
 // builder.Services.AddSingleton(s => new BlobServiceClient(builder.Configuration["BlobStorage:ConnectionString"]));
 
@@ -64,19 +64,42 @@ builder.Services.AddAuthorization(options =>
 // Configure Swagger for API documentation
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Event Management System API", Version = "v1" });
+
+    // Add security requirements for Swagger
+    var scopes = new Dictionary<string, string>
     {
-        Title = "Event Management System API",
-        Version = "v1"
-    });
+       { "User.Read", "Read user information" },
+        { "User.ReadWrite.All", "Read and write user information" }
+    };
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement() {
+    {
+        new OpenApiSecurityScheme {
+            Reference = new OpenApiReference {
+                Type = ReferenceType.SecurityScheme,
+                Id = "oauth2"
+            },
+            Scheme = "oauth2",
+            Name = "oauth2",
+            In = ParameterLocation.Header
+        },
+        new List <string> ()
+    }
+});
 
     // Add security definitions for Swagger
     c.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
     {
-        Description = "Bearer token authentication",
-        Name = "Authorization",
-        In = ParameterLocation.Header,
-        Scheme = "Bearer"
+        Type = SecuritySchemeType.OAuth2,
+        Flows = new OpenApiOAuthFlows
+        {
+            Implicit = new OpenApiOAuthFlow()
+            {
+                AuthorizationUrl = new Uri("https://login.microsoftonline.com/dc6635dc-1fdd-498d-a9d9-3a8b5c1d0eca/oauth2/v2.0/authorize"),
+                TokenUrl = new Uri("https://login.microsoftonline.com/dc6635dc-1fdd-498d-a9d9-3a8b5c1d0eca/oauth2/v2.0/token"),
+                Scopes = scopes
+            }
+        }
     });
 
     c.OperationFilter<SecurityRequirementsOperationFilter>();
@@ -86,16 +109,19 @@ var app = builder.Build();
 
 // Add Swagger middleware
 app.UseSwagger();
-app.UseSwaggerUI(c =>
+app.UseSwaggerUI(options =>
 {
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Event Management System API v1");
-    c.RoutePrefix = string.Empty; // Set Swagger UI at the app's root
+    options.OAuthAppName("Ezure Management API Secret");
+    options.OAuthClientId("b8d05ced-4859-4949-b21a-1070822d99f4");
+    options.OAuthClientSecret("D-b8Q~eDCnRkKj6UTylCZMLPvjv5nun6hWllLcyT");
+    options.OAuthUseBasicAuthenticationWithAccessCodeGrant();
 });
 
 // Middleware configurations
 app.UseStaticFiles();
 app.UseHttpsRedirection();
 app.UseRouting();
+app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

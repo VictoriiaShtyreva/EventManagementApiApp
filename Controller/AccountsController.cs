@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using EventManagementApi.DTO;
 using EventManagementApi.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -14,13 +15,11 @@ namespace EventManagementApi.Controllers
     {
         private readonly GraphServiceClient _graphServiceClient;
         private readonly IConfiguration _configuration;
-        private readonly RoleService _roleService;
 
-        public AccountsController(GraphServiceClient graphServiceClient, IConfiguration configuration, RoleService roleService)
+        public AccountsController(GraphServiceClient graphServiceClient, IConfiguration configuration)
         {
             _graphServiceClient = graphServiceClient;
             _configuration = configuration;
-            _roleService = roleService;
         }
 
         // Register a new user
@@ -41,25 +40,32 @@ namespace EventManagementApi.Controllers
                 }
             };
 
-            // Create the user
-            var createdUser = await _graphServiceClient.Users.PostAsync(user);
-
-            if (createdUser == null || createdUser.Id == null)
+            try
             {
-                return BadRequest("Failed to create user.");
+                // Create the user
+                var createdUser = await _graphServiceClient.Users.PostAsync(user);
+
+                if (createdUser == null || createdUser.Id == null)
+                {
+                    return BadRequest("Failed to create user.");
+                }
+
+                // Assign role to the user
+                var appRoleAssignment = new AppRoleAssignment
+                {
+                    PrincipalId = Guid.Parse(createdUser.Id),
+                    ResourceId = Guid.Parse(_configuration["EntraId:ClientId"] ?? throw new InvalidOperationException("ClientId configuration is missing")),
+                    AppRoleId = Guid.Parse(_configuration["EntraId:AppRoles:User"]!) // Assign "User" role by default
+                };
+
+                await _graphServiceClient.Users[createdUser.Id].AppRoleAssignments.PostAsync(appRoleAssignment);
+
+                return Ok(new { Message = "User registered successfully with role assigned" });
             }
-
-            // Assign role to the user
-            var appRoleAssignment = new AppRoleAssignment
+            catch (ServiceException ex)
             {
-                PrincipalId = Guid.Parse(createdUser.Id),
-                ResourceId = Guid.Parse(_configuration["EntraId:ClientId"] ?? throw new InvalidOperationException("ClientId configuration is missing")),
-                AppRoleId = await _roleService.GetRoleIdByNameAsync("User") // Assign "User" role by default
-            };
-
-            await _graphServiceClient.Users[createdUser.Id].AppRoleAssignments.PostAsync(appRoleAssignment);
-
-            return Ok(new { Message = "User registered successfully with role assigned" });
+                return BadRequest($"Error creating user: {ex.Message}");
+            }
         }
 
         // Update user profile
@@ -88,6 +94,37 @@ namespace EventManagementApi.Controllers
         {
             await _graphServiceClient.Users[userId].DeleteAsync();
             return Ok(new { Message = "User deleted successfully" });
+        }
+
+        // Get user profile
+        [HttpGet("profile")]
+        [Authorize]
+        public async Task<IActionResult> GetProfile()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new { Message = "User ID not found in token." });
+            }
+
+            var user = await _graphServiceClient.Users[userId].GetAsync();
+
+            if (user == null)
+            {
+                return NotFound(new { Message = "User not found." });
+            }
+
+            var userProfile = new
+            {
+                user.DisplayName,
+                user.UserPrincipalName,
+                user.Mail,
+                user.JobTitle,
+                user.MobilePhone,
+                user.OfficeLocation
+            };
+
+            return Ok(userProfile);
         }
     }
 
