@@ -1,6 +1,4 @@
-using System.Security.Claims;
 using EventManagementApi.DTO;
-using EventManagementApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Graph;
@@ -15,7 +13,6 @@ namespace EventManagementApi.Controllers
     {
         private readonly GraphServiceClient _graphServiceClient;
         private readonly IConfiguration _configuration;
-
         public AccountsController(GraphServiceClient graphServiceClient, IConfiguration configuration)
         {
             _graphServiceClient = graphServiceClient;
@@ -24,15 +21,19 @@ namespace EventManagementApi.Controllers
 
         // Register a new user
         [HttpPost("register")]
+        [AllowAnonymous]
         public async Task<IActionResult> Register([FromBody] UserRegistrationDto registrationDto)
         {
-            var tenantId = _configuration["EntraId:TenantId"];
+            var domain = _configuration["EntraId:Domain"];
+            var ServicePrincipalId = _configuration["EntraId:ServicePrincipalId"];
+            var userRoleId = _configuration["EntraId:AppRoles:User"];
+
             var user = new User
             {
                 AccountEnabled = true,
                 DisplayName = registrationDto.DisplayName,
                 MailNickname = registrationDto.UserPrincipalName,
-                UserPrincipalName = $"{registrationDto.UserPrincipalName}@{_configuration["EntraId:Domain"]}",
+                UserPrincipalName = $"{registrationDto.UserPrincipalName}@{domain}",
                 PasswordProfile = new PasswordProfile
                 {
                     ForceChangePasswordNextSignIn = false,
@@ -42,7 +43,7 @@ namespace EventManagementApi.Controllers
 
             try
             {
-                // Create the user
+                // Create the user in Azure AD
                 var createdUser = await _graphServiceClient.Users.PostAsync(user);
 
                 if (createdUser == null || createdUser.Id == null)
@@ -50,17 +51,17 @@ namespace EventManagementApi.Controllers
                     return BadRequest("Failed to create user.");
                 }
 
-                // Assign role to the user
+                // Assign role to the user within your application
                 var appRoleAssignment = new AppRoleAssignment
                 {
                     PrincipalId = Guid.Parse(createdUser.Id),
-                    ResourceId = Guid.Parse(_configuration["EntraId:ClientId"] ?? throw new InvalidOperationException("ClientId configuration is missing")),
-                    AppRoleId = Guid.Parse(_configuration["EntraId:AppRoles:User"]!) // Assign "User" role by default
+                    ResourceId = Guid.Parse(ServicePrincipalId ?? throw new InvalidOperationException("ClientId configuration is missing")),
+                    AppRoleId = Guid.Parse(userRoleId ?? throw new InvalidOperationException("UserRoleId configuration is missing"))
                 };
 
                 await _graphServiceClient.Users[createdUser.Id].AppRoleAssignments.PostAsync(appRoleAssignment);
 
-                return Ok(new { Message = "User registered successfully with role assigned" });
+                return Ok(new { Message = "User registered successfully with user-role assigned" });
             }
             catch (ServiceException ex)
             {
@@ -68,64 +69,14 @@ namespace EventManagementApi.Controllers
             }
         }
 
-        // Update user profile
-        [HttpPut("update")]
-        [Authorize]
-        public async Task<IActionResult> UpdateProfile([FromBody] UserProfileUpdateDto model)
-        {
-            var userId = User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value;
-
-            var user = new User
-            {
-                DisplayName = model.DisplayName,
-                MailNickname = model.UserPrincipalName
-            };
-
-            await _graphServiceClient.Users[userId].PatchAsync(user);
-
-            return Ok(new { Message = "User profile updated successfully" });
-        }
-
-
         // Delete a user
         [HttpDelete("delete/{userId}")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> DeleteUser(string userId)
         {
             await _graphServiceClient.Users[userId].DeleteAsync();
             return Ok(new { Message = "User deleted successfully" });
         }
 
-        // Get user profile
-        [HttpGet("profile")]
-        [Authorize]
-        public async Task<IActionResult> GetProfile()
-        {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized(new { Message = "User ID not found in token." });
-            }
-
-            var user = await _graphServiceClient.Users[userId].GetAsync();
-
-            if (user == null)
-            {
-                return NotFound(new { Message = "User not found." });
-            }
-
-            var userProfile = new
-            {
-                user.DisplayName,
-                user.UserPrincipalName,
-                user.Mail,
-                user.JobTitle,
-                user.MobilePhone,
-                user.OfficeLocation
-            };
-
-            return Ok(userProfile);
-        }
     }
-
 }

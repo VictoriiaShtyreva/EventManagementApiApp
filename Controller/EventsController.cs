@@ -25,8 +25,10 @@ namespace EventManagementApi.Controllers
 
         // Accessible by all authenticated users
         [HttpGet]
+        [Authorize]
         public async Task<IActionResult> GetEvents()
         {
+
             var query = new QueryDefinition("SELECT * FROM c");
             var resultSet = _container.GetItemQueryIterator<Events>(query);
 
@@ -35,6 +37,11 @@ namespace EventManagementApi.Controllers
             {
                 var response = await resultSet.ReadNextAsync();
                 events.AddRange(response);
+            }
+
+            if (!events.Any())
+            {
+                return Ok(new { Message = "No events registered yet." });
             }
 
             return Ok(events);

@@ -17,7 +17,7 @@ namespace EventManagementApi.Services
         public async Task<Guid> GetRoleIdByNameAsync(string roleName)
         {
             var servicePrincipalId = _configuration["EntraId:ServicePrincipalId"];
-            var servicePrincipal = await _graphServiceClient.ServicePrincipals["{servicePrincipalId}"].GetAsync();
+            var servicePrincipal = await _graphServiceClient.ServicePrincipals[servicePrincipalId].GetAsync();
 
             if (servicePrincipal == null || servicePrincipal.AppRoles == null)
             {
