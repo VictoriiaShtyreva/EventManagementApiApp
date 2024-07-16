@@ -7,6 +7,9 @@ namespace EventManagementApi.DTO
         public string? Location { get; set; }
         public DateTime Date { get; set; }
         public string? OrganizerId { get; set; } // EntraID = UserID
+        public string? Type { get; set; }
+        public string? Category { get; set; }
+
     }
 
     public class EventUpdateDto
@@ -19,7 +22,7 @@ namespace EventManagementApi.DTO
 
     public class EventRegistrationDto
     {
-        public Guid? EventId { get; set; }
+        public string? EventId { get; set; }
         public string? UserId { get; set; }
     }
 }

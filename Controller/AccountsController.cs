@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Graph;
 using Microsoft.Graph.Models;
-using Microsoft.Identity.Web.Resource;
 
 namespace EventManagementApi.Controllers
 {
@@ -67,6 +66,27 @@ namespace EventManagementApi.Controllers
             {
                 return BadRequest($"Error creating user: {ex.Message}");
             }
+        }
+
+        // Get a list of users
+        [HttpGet]
+        [Authorize(Policy = "AdminOnly")]
+        public async Task<IActionResult> GetUsers()
+        {
+            var users = new List<UserDto>();
+
+            var result = await _graphServiceClient.Users.GetAsync();
+            if (result != null && result.Value != null)
+            {
+                users.AddRange(result.Value.Select(user => new UserDto
+                {
+                    Id = user.Id,
+                    UserPrincipalName = user.UserPrincipalName
+                }));
+                return Ok(users);
+            }
+            return NotFound("Users not found");
+
         }
 
         // Delete a user

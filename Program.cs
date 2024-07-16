@@ -7,6 +7,7 @@ using Azure.Identity;
 using Swashbuckle.AspNetCore.Filters;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using EventManagementApi.Services;
+using Microsoft.Azure.Cosmos;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,20 +27,31 @@ builder.Services.AddCors(options =>
         });
 });
 
-// Configure Entity Framework with PostgreSQL
+// Configure Cosmos DB for PostgreSQL Cluster connection
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Configure Cosmos DB NoSQL connection
+builder.Services.AddSingleton<CosmosClient>(serviceProvider =>
+{
+    var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+    var account = configuration["CosmosDb:Account"];
+    var key = configuration["CosmosDb:Key"];
+    return new CosmosClient(account, key);
+});
 
 // Configure authentication using Azure 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
   .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("EntraID"));
 
 // Configure authorisation policy
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
-    options.AddPolicy("UserOnly", policy => policy.RequireRole("User"));
-});
+builder.Services.AddAuthorizationBuilder()
+                                     // Configure authorisation policy
+                                     .AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"))
+                                     // Configure authorisation policy
+                                     .AddPolicy("UserOnly", policy => policy.RequireRole("User"))
+                                     // Configure authorisation policy
+                                     .AddPolicy("EventProviderOnly", policy => policy.RequireRole("EventProvider"));
 
 //Configure Microsoft Graph SDK using Azure Identity
 builder.Services.AddSingleton(provider =>
@@ -51,6 +63,8 @@ builder.Services.AddSingleton(provider =>
     var clientSecretCredential = new ClientSecretCredential(tenantId, clientId, clientSecret);
     return new GraphServiceClient(clientSecretCredential);
 });
+
+// 
 
 
 // Configure Azure Blob Storage

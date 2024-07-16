@@ -1,9 +1,10 @@
-using Microsoft.Kiota.Abstractions;
+using System.ComponentModel.DataAnnotations;
 
 namespace EventManagementApi.Entity
 {
-    public class Events
+    public class Event
     {
+        [Key]
         public Guid Id { get; set; }
         public string? Name { get; set; }
         public string? Description { get; set; }
