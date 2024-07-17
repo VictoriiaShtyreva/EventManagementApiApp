@@ -1,3 +1,5 @@
+using System.Text;
+using Azure.Messaging.ServiceBus;
 using EventManagementApi.DTO;
 using EventManagementApi.Entities;
 using EventManagementApi.Entity;
@@ -5,6 +7,7 @@ using EventManagementApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 
 namespace EventManagementApi.Controllers
 {
@@ -15,12 +18,16 @@ namespace EventManagementApi.Controllers
         private readonly ApplicationDbContext _context;
         private readonly EventMetadataService _eventMetadataService;
         private readonly UserInteractionsService _userInteractionsService;
+        private readonly ServiceBusClient _serviceBusClient;
+        private readonly string? _queueName;
 
-        public EventsController(ApplicationDbContext context, EventMetadataService eventMetadataService, UserInteractionsService userInteractionsService)
+        public EventsController(ApplicationDbContext context, IConfiguration configuration, EventMetadataService eventMetadataService, UserInteractionsService userInteractionsService, ServiceBusClient serviceBusClient)
         {
             _context = context;
             _eventMetadataService = eventMetadataService;
             _userInteractionsService = userInteractionsService;
+            _serviceBusClient = serviceBusClient;
+            _queueName = configuration["ServiceBus:QueueName"];
         }
 
         // Accessible by all authenticated users
@@ -160,7 +167,6 @@ namespace EventManagementApi.Controllers
             try
             {
                 var userId = User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value;
-
                 var registration = new EventRegistration
                 {
                     EventId = id.ToString(),
@@ -180,6 +186,13 @@ namespace EventManagementApi.Controllers
                     UserId = userId
                 };
                 await _userInteractionsService.AddUserInteractionAsync(userInteraction);
+
+                // Send event registration message to queue
+                var messageBody = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(userInteraction));
+                var message = new ServiceBusMessage(messageBody) { SessionId = userId };
+
+                ServiceBusSender sender = _serviceBusClient.CreateSender(_queueName);
+                await sender.SendMessageAsync(message);
 
                 return Ok(new { Message = "Registered for event successfully" });
             }
@@ -218,6 +231,13 @@ namespace EventManagementApi.Controllers
                     UserId = userId
                 };
                 await _userInteractionsService.AddUserInteractionAsync(userInteraction);
+
+                // Send event unregistration message to queue
+                var messageBody = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(userInteraction));
+                var message = new ServiceBusMessage(messageBody) { SessionId = userId };
+
+                ServiceBusSender sender = _serviceBusClient.CreateSender(_queueName);
+                await sender.SendMessageAsync(message);
 
                 return Ok(new { Message = "Unregistered from event successfully" });
             }
