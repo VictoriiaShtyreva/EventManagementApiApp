@@ -18,4 +18,10 @@ namespace EventManagementApi.DTO
         public string? Id { get; set; }
         public string? UserPrincipalName { get; set; }
     }
+
+    public class UserEmailDto
+    {
+        public string? UserId { get; set; }
+        public string? Email { get; set; }
+    }
 }

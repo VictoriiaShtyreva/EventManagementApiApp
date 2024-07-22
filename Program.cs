@@ -71,6 +71,13 @@ builder.Services.AddSingleton(provider =>
 //Configure Azure Service Bus
 builder.Services.AddSingleton(s => new ServiceBusClient(builder.Configuration["ServiceBus:ConnectionString"]));
 
+builder.Services.AddSingleton<ServiceBusQueueService>(s =>
+{
+    var serviceBusClient = s.GetRequiredService<ServiceBusClient>();
+    var config = s.GetRequiredService<IConfiguration>();
+    return new ServiceBusQueueService(serviceBusClient, config);
+});
+
 // Configure Azure Application Insights for monitoring and diagnostics
 // builder.Services.AddApplicationInsightsTelemetry(builder.Configuration["ApplicationInsights:ConnectionString"]);
 

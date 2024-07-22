@@ -60,7 +60,7 @@ namespace EventManagementApi.Controllers
 
                 await _graphServiceClient.Users[createdUser.Id].AppRoleAssignments.PostAsync(appRoleAssignment);
 
-                return Ok(new { Message = "User registered successfully with user-role assigned" });
+                return Ok(new { Message = $"User {createdUser.DisplayName} registered successfully with user-role assigned. For login use your user principal name as {createdUser.UserPrincipalName} and your password." });
             }
             catch (ServiceException ex)
             {
@@ -96,6 +96,28 @@ namespace EventManagementApi.Controllers
         {
             await _graphServiceClient.Users[userId].DeleteAsync();
             return Ok(new { Message = "User deleted successfully" });
+        }
+
+        // Add email address for receiving confirmation emails about registration/unregistration to/from event
+        [HttpPost("update-email")]
+        [Authorize(Policy = "UserOnly")]
+        public async Task<IActionResult> UpdateEmail([FromBody] UserEmailDto userEmailDto)
+        {
+            try
+            {
+                var user = new User
+                {
+                    Mail = userEmailDto.Email
+                };
+
+                await _graphServiceClient.Users[userEmailDto.UserId].PatchAsync(user);
+
+                return Ok(new { Message = "Email address updated successfully" });
+            }
+            catch (ServiceException ex)
+            {
+                return BadRequest($"Error updating email address: {ex.Message}");
+            }
         }
 
     }
