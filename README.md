@@ -1,5 +1,7 @@
 # Event Management System API
 
+Link to AzureFunction Repo: https://github.com/VictoriiaShtyreva/EventManagementFunctionApp
+
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Azure](https://img.shields.io/badge/Azure-Enabled-blue)
@@ -28,54 +30,57 @@ The Event Management System is a web application built with ASP.NET Core, Entity
   - **Events:** Stores details of each event.
   - **EventRegistrations:** Tracks which users have registered for which events.
 - **Cosmos DB for NoSQL**
+
   - **EventMetadata:** Stores additional metadata for events (tags, type, ). When users search for events, we can use metadata.
   - **UserInteractions:** Stores user interactions related to events.
   - Example:
-      ````csharp
-        public async Task<IEnumerable<EventMetadata>> SearchEventsByMetadataAsync(string[] tags, string type, string category)
-        {
-            var query = new QueryDefinition("SELECT * FROM c WHERE ARRAY_CONTAINS(@tags, c.tags) AND c.type = @type AND c.category = @category")
-                .WithParameter("@tags", tags)
-                .WithParameter("@type", type)
-                .WithParameter("@category", category);
 
-            var iterator = _eventMetadataContainer.GetItemQueryIterator<EventMetadata>(query);
-            var results = new List<EventMetadata>();
+    ```csharp
+      public async Task<IEnumerable<EventMetadata>> SearchEventsByMetadataAsync(string[] tags, string type, string category)
+      {
+          var query = new QueryDefinition("SELECT * FROM c WHERE ARRAY_CONTAINS(@tags, c.tags) AND c.type = @type AND c.category = @category")
+              .WithParameter("@tags", tags)
+              .WithParameter("@type", type)
+              .WithParameter("@category", category);
 
-            while (iterator.HasMoreResults)
-            {
-                var response = await iterator.ReadNextAsync();
-                results.AddRange(response.ToList());
-            }
+          var iterator = _eventMetadataContainer.GetItemQueryIterator<EventMetadata>(query);
+          var results = new List<EventMetadata>();
 
-            return results;
-        }
+          while (iterator.HasMoreResults)
+          {
+              var response = await iterator.ReadNextAsync();
+              results.AddRange(response.ToList());
+          }
 
-        public async Task<IEnumerable<Event>> GetMostViewedEventsAsync()
-        {
-            var query = new QueryDefinition("SELECT c.eventId, COUNT(c.id) as views FROM c WHERE c.interactionType = 'view' GROUP BY c.eventId ORDER BY views DESC");
+          return results;
+      }
 
-            var iterator = _userInteractionsContainer.GetItemQueryIterator<UserInteraction>(query);
-            var results = new List<UserInteraction>();
+      public async Task<IEnumerable<Event>> GetMostViewedEventsAsync()
+      {
+          var query = new QueryDefinition("SELECT c.eventId, COUNT(c.id) as views FROM c WHERE c.interactionType = 'view' GROUP BY c.eventId ORDER BY views DESC");
 
-            while (iterator.HasMoreResults)
-            {
-                var response = await iterator.ReadNextAsync();
-                results.AddRange(response.ToList());
-            }
+          var iterator = _userInteractionsContainer.GetItemQueryIterator<UserInteraction>(query);
+          var results = new List<UserInteraction>();
 
-            var eventIds = results.Select(r => r.EventId).Distinct();
-            var events = new List<Event>();
+          while (iterator.HasMoreResults)
+          {
+              var response = await iterator.ReadNextAsync();
+              results.AddRange(response.ToList());
+          }
 
-            foreach (var eventId in eventIds)
-            {
-                var eventResponse = await _eventsContainer.ReadItemAsync<Event>(eventId, new PartitionKey(eventId));
-                events.Add(eventResponse.Resource);
-            }
+          var eventIds = results.Select(r => r.EventId).Distinct();
+          var events = new List<Event>();
 
-            return events;
-        }
-    ````
+          foreach (var eventId in eventIds)
+          {
+              var eventResponse = await _eventsContainer.ReadItemAsync<Event>(eventId, new PartitionKey(eventId));
+              events.Add(eventResponse.Resource);
+          }
+
+          return events;
+      }
+    ```
+
 - **Azure Blob Storage**
   - **EventImages:** Stores images related to events.
   - **UserProfiles:** Stores user profile pictures.
@@ -95,10 +100,13 @@ The Event Management System is a web application built with ASP.NET Core, Entity
 10. **Application Insights monitors and diagnoses issues** in the application.
 
 ## Alternative account management strategy
+
 - Instead of managing ApplicationUser in the code base, you can consider using EntraID & Microsoft Graph to manage all registration. login, authentication (In this case, there will be no ApplicationUser in your code base, but only use UserId in Event registration. UserId will be taken from EntraId)
 - Example:
+
   - Dependency Injection in `Program.cs`
-  ````csharp
+
+  ```csharp
   builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("EntraID"));
 
@@ -117,9 +125,11 @@ The Event Management System is a web application built with ASP.NET Core, Entity
       var authProvider = provider.GetRequiredService<IAuthenticationProvider>();
       return new GraphServiceClient(authProvider);
   });
-  ````
+  ```
+
   - AccountsController:
-  ````csharp
+
+  ```csharp
   using Microsoft.AspNetCore.Authorization;
   using Microsoft.AspNetCore.Mvc;
   using Microsoft.Graph;
@@ -172,54 +182,56 @@ The Event Management System is a web application built with ASP.NET Core, Entity
           public string Password { get; set; }
       }
   }
-  ````
+  ```
+
   - appsettings.json
-  ````json
+
+  ```json
   {
-  "EntraId": {
-    "Instance": "https://login.microsoftonline.com/",
-    "Domain": "yourtenant.onmicrosoft.com",
-    "TenantId": "your-tenant-id",
-    "ClientId": "your-client-id",
-    "ClientSecret": "your-client-secret",
-    "CallbackPath": "/signin-oidc",
-    "Scopes": {
-      "Read": "api://your-api-client-id/Events.Read",
-      "Write": "api://your-api-client-id/Events.Write"
+    "EntraId": {
+      "Instance": "https://login.microsoftonline.com/",
+      "Domain": "yourtenant.onmicrosoft.com",
+      "TenantId": "your-tenant-id",
+      "ClientId": "your-client-id",
+      "ClientSecret": "your-client-secret",
+      "CallbackPath": "/signin-oidc",
+      "Scopes": {
+        "Read": "api://your-api-client-id/Events.Read",
+        "Write": "api://your-api-client-id/Events.Write"
+      },
+      "AppPermissions": {
+        "Read": "EventProvider",
+        "Write": "Admin"
+      }
     },
-    "AppPermissions": {
-      "Read": "EventProvider",
-      "Write": "Admin"
-    }
-  },
-  "ConnectionStrings": {
-    "DefaultConnection": "Host=your_host;Database=your_db;Username=your_user;Password=your_password"
-  },
-  "ApplicationInsights": {
-    "ConnectionString": "your_application_insights_connection_string"
-  },
-  "RedisCache": {
-    "ConnectionString": "your_redis_cache_connection_string"
-  },
-  "ServiceBus": {
-    "QueueName": "event-registrations-queue",
-    "ConnectionString": "your_service_bus_connection_string"
-  },
-  "BlobStorage": {
-    "ConnectionString": "your_blob_storage_connection_string"
-  },
-  "CosmosDb": {
-    "Account": "your_cosmos_db_account_endpoint",
-    "Key": "your_cosmos_db_account_key",
-    "DatabaseName": "EventManagement"
-  },
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft": "Warning",
-      "Microsoft.Hosting.Lifetime": "Information"
-    }
-  },
-  "AllowedHosts": "*"
+    "ConnectionStrings": {
+      "DefaultConnection": "Host=your_host;Database=your_db;Username=your_user;Password=your_password"
+    },
+    "ApplicationInsights": {
+      "ConnectionString": "your_application_insights_connection_string"
+    },
+    "RedisCache": {
+      "ConnectionString": "your_redis_cache_connection_string"
+    },
+    "ServiceBus": {
+      "QueueName": "event-registrations-queue",
+      "ConnectionString": "your_service_bus_connection_string"
+    },
+    "BlobStorage": {
+      "ConnectionString": "your_blob_storage_connection_string"
+    },
+    "CosmosDb": {
+      "Account": "your_cosmos_db_account_endpoint",
+      "Key": "your_cosmos_db_account_key",
+      "DatabaseName": "EventManagement"
+    },
+    "Logging": {
+      "LogLevel": {
+        "Default": "Information",
+        "Microsoft": "Warning",
+        "Microsoft.Hosting.Lifetime": "Information"
+      }
+    },
+    "AllowedHosts": "*"
   }
-  ````
+  ```
