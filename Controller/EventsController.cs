@@ -18,19 +18,17 @@ namespace EventManagementApi.Controllers
         private readonly ApplicationDbContext _context;
         private readonly EventMetadataService _eventMetadataService;
         private readonly UserInteractionsService _userInteractionsService;
-        private readonly ServiceBusClient _serviceBusClient;
-        private readonly string? _queueName;
+        private readonly ServiceBusQueueService _serviceBusQueueService;
 
-        public EventsController(ApplicationDbContext context, IConfiguration configuration, EventMetadataService eventMetadataService, UserInteractionsService userInteractionsService, ServiceBusClient serviceBusClient)
+        public EventsController(ApplicationDbContext context, IConfiguration configuration, EventMetadataService eventMetadataService, UserInteractionsService userInteractionsService, ServiceBusQueueService serviceBusQueueService)
         {
             _context = context;
             _eventMetadataService = eventMetadataService;
             _userInteractionsService = userInteractionsService;
-            _serviceBusClient = serviceBusClient;
-            _queueName = configuration["ServiceBus:QueueName"];
+            _serviceBusQueueService = serviceBusQueueService;
         }
 
-        // Accessible by all authenticated users
+        // Accessible by all authenticated users - GET ALL EVENTS
         [HttpGet]
         [Authorize]
         public async Task<IActionResult> GetEvents()
@@ -50,7 +48,7 @@ namespace EventManagementApi.Controllers
             }
         }
 
-        // Accessible by Event Providers
+        // Accessible by Event Providers - CREATE EVENT
         [HttpPost]
         [Authorize(Policy = "EventProviderOnly")]
         public async Task<IActionResult> CreateEvent([FromBody] EventCreateDto newEventDto)
@@ -78,9 +76,10 @@ namespace EventManagementApi.Controllers
                     Type = newEventDto.Type,
                     Category = newEventDto.Category
                 };
+
                 await _eventMetadataService.AddEventMetadataAsync(eventMetadata);
 
-                return Ok(new { Message = "Event created successfully" });
+                return Ok(new { Message = $"Event: {newEvent.Name}, {eventMetadata.Type}, {eventMetadata.Category} created successfully" });
             }
             catch (Exception ex)
             {
@@ -88,7 +87,7 @@ namespace EventManagementApi.Controllers
             }
         }
 
-        // Accessible by all authenticated users
+        // Accessible by all authenticated users - GET EVENT BY ID
         [HttpGet("{id}")]
         [Authorize]
         public async Task<IActionResult> GetEventById(Guid id)
@@ -98,7 +97,7 @@ namespace EventManagementApi.Controllers
                 var eventItem = await _context.Events.FindAsync(id);
                 if (eventItem == null)
                 {
-                    return NotFound(new { Message = "Event not found." });
+                    return NotFound(new { Message = $"Event: {eventItem?.Name} not found." });
                 }
                 return Ok(eventItem);
             }
@@ -108,7 +107,7 @@ namespace EventManagementApi.Controllers
             }
         }
 
-        // Accessible by Event Providers
+        // Accessible by Event Providers - UPDATE EVENT
         [HttpPatch("{id}")]
         [Authorize(Policy = "EventProviderOnly")]
         public async Task<IActionResult> UpdateEvent(Guid id, [FromBody] EventUpdateDto updatedEventDto)
@@ -121,14 +120,14 @@ namespace EventManagementApi.Controllers
                     return NotFound(new { Message = "Event not found." });
                 }
 
-                eventToUpdate.Name = updatedEventDto.Name;
-                eventToUpdate.Description = updatedEventDto.Description;
-                eventToUpdate.Location = updatedEventDto.Location;
-                eventToUpdate.Date = updatedEventDto.Date;
+                eventToUpdate.Name = updatedEventDto.Name ?? eventToUpdate.Name;
+                eventToUpdate.Description = updatedEventDto.Description ?? eventToUpdate.Description;
+                eventToUpdate.Location = updatedEventDto.Location ?? eventToUpdate.Location;
+                eventToUpdate.Date = updatedEventDto.Date ?? eventToUpdate.Date;
 
                 _context.Events.Update(eventToUpdate);
                 await _context.SaveChangesAsync();
-                return Ok(new { Message = "Event updated successfully" });
+                return Ok(new { Message = $"Event: {eventToUpdate.Name} updated successfully" });
             }
             catch (Exception ex)
             {
@@ -136,7 +135,7 @@ namespace EventManagementApi.Controllers
             }
         }
 
-        // Accessible by Admins
+        // Accessible by Admins - DELETE EVENT
         [HttpDelete("{id}")]
         [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> DeleteEvent(Guid id)
@@ -151,7 +150,7 @@ namespace EventManagementApi.Controllers
 
                 _context.Events.Remove(eventToDelete);
                 await _context.SaveChangesAsync();
-                return Ok(new { Message = "Event deleted successfully" });
+                return Ok(new { Message = $"Event: {eventToDelete.Name} deleted successfully" });
             }
             catch (Exception ex)
             {
@@ -159,7 +158,7 @@ namespace EventManagementApi.Controllers
             }
         }
 
-        // User can register for an event
+        // User can register for an event - USER REGISTER 
         [HttpPost("{id}/register")]
         [Authorize(Policy = "UserOnly")]
         public async Task<IActionResult> RegisterForEvent(Guid id)
@@ -167,34 +166,30 @@ namespace EventManagementApi.Controllers
             try
             {
                 var userId = User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value;
-                var registration = new EventRegistration
+
+                var registrationDto = new EventRegistrationDto
                 {
                     EventId = id.ToString(),
                     UserId = userId,
-                    RegistrationDate = DateTime.UtcNow
+                    Action = "Register"
+                };
+
+                var registration = new EventRegistration
+                {
+                    EventId = registrationDto.EventId,
+                    UserId = registrationDto.UserId,
+                    Action = registrationDto.Action
                 };
 
                 _context.EventRegistrations.Add(registration);
                 await _context.SaveChangesAsync();
 
-                // Add user interaction
-                var userInteraction = new UserInteraction
-                {
-                    Id = Guid.NewGuid().ToString(),
-                    EventId = id.ToString(),
-                    InteractionType = "register",
-                    UserId = userId
-                };
-                await _userInteractionsService.AddUserInteractionAsync(userInteraction);
-
-                // Send event registration message to queue
-                var messageBody = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(userInteraction));
+                // Send event registration message to BusQueue
+                var messageBody = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(registration));
                 var message = new ServiceBusMessage(messageBody) { SessionId = userId };
+                await _serviceBusQueueService.SendMessageAsync(message);
 
-                ServiceBusSender sender = _serviceBusClient.CreateSender(_queueName);
-                await sender.SendMessageAsync(message);
-
-                return Ok(new { Message = "Registered for event successfully" });
+                return Ok(new { Message = $" User {registration.UserId} registered for event {registration.EventId} successfully" });
             }
             catch (Exception ex)
             {
@@ -202,7 +197,7 @@ namespace EventManagementApi.Controllers
             }
         }
 
-        // User can unregister from an event
+        // User can unregister from an event - USER UNREGISTER
         [HttpDelete("{id}/unregister")]
         [Authorize(Policy = "UserOnly")]
         public async Task<IActionResult> UnregisterFromEvent(Guid id)
@@ -219,27 +214,23 @@ namespace EventManagementApi.Controllers
                     return NotFound(new { Message = "Registration not found." });
                 }
 
-                _context.EventRegistrations.Remove(registration);
+                registration.Action = "Unregister";
+                _context.EventRegistrations.Update(registration);
                 await _context.SaveChangesAsync();
 
-                // Add user interaction
-                var userInteraction = new UserInteraction
+                var unRegistrationDto = new EventRegistrationDto
                 {
-                    Id = Guid.NewGuid().ToString(),
                     EventId = id.ToString(),
-                    InteractionType = "unregister",
-                    UserId = userId
+                    UserId = userId,
+                    Action = "Unregister"
                 };
-                await _userInteractionsService.AddUserInteractionAsync(userInteraction);
 
-                // Send event unregistration message to queue
-                var messageBody = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(userInteraction));
+                // Send event registration message to BusQueue
+                var messageBody = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(registration));
                 var message = new ServiceBusMessage(messageBody) { SessionId = userId };
+                await _serviceBusQueueService.SendMessageAsync(message);
 
-                ServiceBusSender sender = _serviceBusClient.CreateSender(_queueName);
-                await sender.SendMessageAsync(message);
-
-                return Ok(new { Message = "Unregistered from event successfully" });
+                return Ok(new { Message = $"User {unRegistrationDto.UserId} unregistered from event {unRegistrationDto.EventId} successfully" });
             }
             catch (Exception ex)
             {

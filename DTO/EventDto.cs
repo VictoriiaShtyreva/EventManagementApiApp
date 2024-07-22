@@ -5,7 +5,7 @@ namespace EventManagementApi.DTO
         public string? Name { get; set; }
         public string? Description { get; set; }
         public string? Location { get; set; }
-        public DateTime Date { get; set; }
+        public string Date { get; set; } = DateTime.UtcNow.ToString();
         public string? OrganizerId { get; set; } // EntraID = UserID
         public string? Type { get; set; }
         public string? Category { get; set; }
@@ -17,12 +17,7 @@ namespace EventManagementApi.DTO
         public string? Name { get; set; }
         public string? Description { get; set; }
         public string? Location { get; set; }
-        public DateTime Date { get; set; }
+        public string Date { get; set; } = DateTime.UtcNow.ToString();
     }
 
-    public class EventRegistrationDto
-    {
-        public string? EventId { get; set; }
-        public string? UserId { get; set; }
-    }
 }

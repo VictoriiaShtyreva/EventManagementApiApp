@@ -8,6 +8,7 @@ using Swashbuckle.AspNetCore.Filters;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using EventManagementApi.Services;
 using Microsoft.Azure.Cosmos;
+using Azure.Messaging.ServiceBus;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -64,14 +65,11 @@ builder.Services.AddSingleton(provider =>
     return new GraphServiceClient(clientSecretCredential);
 });
 
-// 
-
-
 // Configure Azure Blob Storage
 // builder.Services.AddSingleton(s => new BlobServiceClient(builder.Configuration["BlobStorage:ConnectionString"]));
 
-// Configure Azure Service Bus
-// builder.Services.AddSingleton(s => new ServiceBusClient(builder.Configuration["ServiceBus:ConnectionString"]));
+//Configure Azure Service Bus
+builder.Services.AddSingleton(s => new ServiceBusClient(builder.Configuration["ServiceBus:ConnectionString"]));
 
 // Configure Azure Application Insights for monitoring and diagnostics
 // builder.Services.AddApplicationInsightsTelemetry(builder.Configuration["ApplicationInsights:ConnectionString"]);
