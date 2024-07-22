@@ -148,6 +148,13 @@ namespace EventManagementApi.Controllers
                     return NotFound(new { Message = "Event not found." });
                 }
 
+                // Delete event metadata
+                var eventMetadata = await _eventMetadataService.SearchEventsByEventIdAsync(id.ToString());
+                foreach (var metadata in eventMetadata)
+                {
+                    await _eventMetadataService.DeleteEventMetadataAsync(metadata.Id!);
+                }
+
                 _context.Events.Remove(eventToDelete);
                 await _context.SaveChangesAsync();
                 return Ok(new { Message = $"Event: {eventToDelete.Name} deleted successfully" });
@@ -181,15 +188,22 @@ namespace EventManagementApi.Controllers
                     Action = registrationDto.Action
                 };
 
-                _context.EventRegistrations.Add(registration);
-                await _context.SaveChangesAsync();
+                // Add user interaction
+                var userInteraction = new UserInteraction
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    EventId = registrationDto.EventId,
+                    InteractionType = "Register",
+                    UserId = registrationDto.UserId
+                };
+                await _userInteractionsService.AddUserInteractionAsync(userInteraction);
 
                 // Send event registration message to BusQueue
                 var messageBody = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(registration));
                 var message = new ServiceBusMessage(messageBody) { SessionId = userId };
                 await _serviceBusQueueService.SendMessageAsync(message);
 
-                return Ok(new { Message = $" User {registration.UserId} registered for event {registration.EventId} successfully" });
+                return Ok(new { Message = $" User {registration.UserId} successfully sent request to register for event {registration.EventId}" });
             }
             catch (Exception ex)
             {
@@ -214,10 +228,6 @@ namespace EventManagementApi.Controllers
                     return NotFound(new { Message = "Registration not found." });
                 }
 
-                registration.Action = "Unregister";
-                _context.EventRegistrations.Update(registration);
-                await _context.SaveChangesAsync();
-
                 var unRegistrationDto = new EventRegistrationDto
                 {
                     EventId = id.ToString(),
@@ -225,12 +235,23 @@ namespace EventManagementApi.Controllers
                     Action = "Unregister"
                 };
 
+                // Add user interaction
+                var userInteraction = new UserInteraction
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    EventId = unRegistrationDto.EventId,
+                    InteractionType = "Unregister",
+                    UserId = unRegistrationDto.UserId
+                };
+                await _userInteractionsService.AddUserInteractionAsync(userInteraction);
+
+
                 // Send event registration message to BusQueue
                 var messageBody = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(registration));
                 var message = new ServiceBusMessage(messageBody) { SessionId = userId };
                 await _serviceBusQueueService.SendMessageAsync(message);
 
-                return Ok(new { Message = $"User {unRegistrationDto.UserId} unregistered from event {unRegistrationDto.EventId} successfully" });
+                return Ok(new { Message = $"User {unRegistrationDto.UserId} successfully sent request to unregister from event {unRegistrationDto.EventId}" });
             }
             catch (Exception ex)
             {
@@ -245,7 +266,7 @@ namespace EventManagementApi.Controllers
         {
             try
             {
-                var results = await _eventMetadataService.SearchEventsByMetadataAsync(type, category);
+                var results = await _eventMetadataService.SearchEventsByTypeAndCategoryAsync(type, category);
                 return Ok(results);
             }
             catch (Exception ex)

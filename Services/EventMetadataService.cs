@@ -14,11 +14,13 @@ namespace EventManagementApi.Services
             _container = cosmosClient.GetContainer(databaseName, containerName);
         }
 
-        public async Task<IEnumerable<EventMetadata>> SearchEventsByMetadataAsync(string type, string category)
+        public async Task<IEnumerable<EventMetadata>> SearchEventsByCriteriaAsync(string queryText, params (string Name, object Value)[] parameters)
         {
-            var query = new QueryDefinition("SELECT * FROM c WHERE c.type = @type AND c.category = @category")
-            .WithParameter("@type", type)
-            .WithParameter("@category", category);
+            var query = new QueryDefinition(queryText);
+            foreach (var parameter in parameters)
+            {
+                query = query.WithParameter(parameter.Name, parameter.Value);
+            }
 
             var iterator = _container.GetItemQueryIterator<EventMetadata>(query);
             var results = new List<EventMetadata>();
@@ -32,9 +34,27 @@ namespace EventManagementApi.Services
             return results;
         }
 
+        public async Task<IEnumerable<EventMetadata>> SearchEventsByTypeAndCategoryAsync(string type, string category)
+        {
+            var queryText = "SELECT * FROM c WHERE c.type = @type AND c.category = @category";
+            return await SearchEventsByCriteriaAsync(queryText, ("@type", type), ("@category", category));
+        }
+
+        public async Task<IEnumerable<EventMetadata>> SearchEventsByEventIdAsync(string eventId)
+        {
+            var queryText = "SELECT * FROM c WHERE c.eventId = @eventId";
+            return await SearchEventsByCriteriaAsync(queryText, ("@eventId", eventId));
+        }
+
         public async Task AddEventMetadataAsync(EventMetadata eventMetadata)
         {
             await _container.CreateItemAsync(eventMetadata, new PartitionKey(eventMetadata.EventId));
         }
+
+        public async Task DeleteEventMetadataAsync(string eventMetadataId)
+        {
+            await _container.DeleteItemAsync<EventMetadata>(eventMetadataId, new PartitionKey(eventMetadataId));
+        }
+
     }
 }

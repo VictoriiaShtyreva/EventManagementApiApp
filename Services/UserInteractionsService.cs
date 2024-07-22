@@ -12,7 +12,7 @@ namespace EventManagementApi.Services
         {
             var databaseName = configuration["CosmosDb:DatabaseName"];
             var userInteractionsContainerName = configuration["CosmosDb:UserInteractionsContainer"];
-            var eventsContainerName = configuration["CosmosDb:EventsContainer"];
+            var eventsContainerName = configuration["CosmosDb:EventMetadataContainer"];
             _container = cosmosClient.GetContainer(databaseName, userInteractionsContainerName);
             _eventsContainer = cosmosClient.GetContainer(databaseName, eventsContainerName);
         }
