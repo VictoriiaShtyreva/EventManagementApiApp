@@ -4,6 +4,7 @@ using EventManagementApi.DTO;
 using EventManagementApi.Entities;
 using EventManagementApi.Entity;
 using EventManagementApi.Services;
+using Microsoft.ApplicationInsights;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -20,13 +21,16 @@ namespace EventManagementApi.Controllers
         private readonly UserInteractionsService _userInteractionsService;
         private readonly ServiceBusQueueService _serviceBusQueueService;
         private readonly EventBlobService _eventBlobService;
-        public EventsController(ApplicationDbContext context, IConfiguration configuration, EventMetadataService eventMetadataService, UserInteractionsService userInteractionsService, ServiceBusQueueService serviceBusQueueService, EventBlobService eventBlobService)
+        private readonly TelemetryClient _telemetryClient;
+
+        public EventsController(ApplicationDbContext context, IConfiguration configuration, EventMetadataService eventMetadataService, UserInteractionsService userInteractionsService, ServiceBusQueueService serviceBusQueueService, EventBlobService eventBlobService, TelemetryClient telemetryClient)
         {
             _context = context;
             _eventMetadataService = eventMetadataService;
             _userInteractionsService = userInteractionsService;
             _serviceBusQueueService = serviceBusQueueService;
             _eventBlobService = eventBlobService;
+            _telemetryClient = telemetryClient;
         }
 
         // Accessible by all authenticated users - GET ALL EVENTS
@@ -322,6 +326,13 @@ namespace EventManagementApi.Controllers
 
                         _context.EventImages.Add(eventImage);
                         uploadedUrls.Add(result.Url!);
+
+                        // Log custom event to Application Insights
+                        _telemetryClient.TrackEvent("EventImageUploaded", new Dictionary<string, string>
+                        {
+                            { "EventId", id.ToString() },
+                            { "ImageUrl", result.Url! }
+                        });
                     }
                     else
                     {
@@ -370,6 +381,13 @@ namespace EventManagementApi.Controllers
 
                         _context.EventDocuments.Add(eventDocument);
                         uploadedUrls.Add(result.Url!);
+
+                        // Log custom event to Application Insights
+                        _telemetryClient.TrackEvent("EventDocumentUploaded", new Dictionary<string, string>
+                        {
+                            { "EventId", id.ToString() },
+                            { "DocumentUrl", result.Url! }
+                        });
                     }
                     else
                     {

@@ -79,7 +79,7 @@ builder.Services.AddSingleton(s => new ServiceBusClient(builder.Configuration["S
 
 
 // Configure Azure Application Insights for monitoring and diagnostics
-// builder.Services.AddApplicationInsightsTelemetry(builder.Configuration["ApplicationInsights:ConnectionString"]);
+builder.Services.AddApplicationInsightsTelemetry();
 
 
 //Add authorization for Swagger

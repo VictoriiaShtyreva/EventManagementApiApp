@@ -1,4 +1,5 @@
 using EventManagementApi.DTO;
+using Microsoft.ApplicationInsights;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Graph;
@@ -12,10 +13,12 @@ namespace EventManagementApi.Controllers
     {
         private readonly GraphServiceClient _graphServiceClient;
         private readonly IConfiguration _configuration;
-        public AccountsController(GraphServiceClient graphServiceClient, IConfiguration configuration)
+        private readonly TelemetryClient _telemetryClient;
+        public AccountsController(GraphServiceClient graphServiceClient, IConfiguration configuration, TelemetryClient telemetryClient)
         {
             _graphServiceClient = graphServiceClient;
             _configuration = configuration;
+            _telemetryClient = telemetryClient;
         }
 
         // Register a new user
@@ -59,6 +62,12 @@ namespace EventManagementApi.Controllers
                 };
 
                 await _graphServiceClient.Users[createdUser.Id].AppRoleAssignments.PostAsync(appRoleAssignment);
+
+                _telemetryClient.TrackEvent("UserRegistered", new Dictionary<string, string>
+                {
+                    { "DisplayName", createdUser.DisplayName! },
+                    { "UserPrincipalName", createdUser.UserPrincipalName! }
+                });
 
                 return Ok(new { Message = $"User {createdUser.DisplayName} registered successfully with user-role assigned. For login use your user principal name as {createdUser.UserPrincipalName} and your password." });
             }
@@ -111,6 +120,12 @@ namespace EventManagementApi.Controllers
                 };
 
                 await _graphServiceClient.Users[userEmailDto.UserId].PatchAsync(user);
+
+                _telemetryClient.TrackEvent("UserEmailUpdated", new Dictionary<string, string>
+                {
+                    { "UserId", userEmailDto.UserId!},
+                    { "Email", userEmailDto.Email! }
+                });
 
                 return Ok(new { Message = "Email address updated successfully" });
             }
