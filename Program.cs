@@ -9,12 +9,18 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using EventManagementApi.Services;
 using Microsoft.Azure.Cosmos;
 using Azure.Messaging.ServiceBus;
+using Azure.Storage.Blobs;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddTransient<RoleService>();
+builder.Services.AddSingleton<ServiceBusQueueService>();
+builder.Services.AddSingleton<BlobStorageService>();
+builder.Services.AddSingleton<EventBlobService>();
+builder.Services.AddSingleton<EventMetadataService>();
+builder.Services.AddSingleton<UserInteractionsService>();
 
 // Configure CORS
 builder.Services.AddCors(options =>
@@ -66,17 +72,11 @@ builder.Services.AddSingleton(provider =>
 });
 
 // Configure Azure Blob Storage
-// builder.Services.AddSingleton(s => new BlobServiceClient(builder.Configuration["BlobStorage:ConnectionString"]));
+builder.Services.AddSingleton(s => new BlobServiceClient(builder.Configuration["BlobStorage:ConnectionString"]));
 
 //Configure Azure Service Bus
 builder.Services.AddSingleton(s => new ServiceBusClient(builder.Configuration["ServiceBus:ConnectionString"]));
 
-builder.Services.AddSingleton<ServiceBusQueueService>(s =>
-{
-    var serviceBusClient = s.GetRequiredService<ServiceBusClient>();
-    var config = s.GetRequiredService<IConfiguration>();
-    return new ServiceBusQueueService(serviceBusClient, config);
-});
 
 // Configure Azure Application Insights for monitoring and diagnostics
 // builder.Services.AddApplicationInsightsTelemetry(builder.Configuration["ApplicationInsights:ConnectionString"]);

@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace EventManagementApi.Entity
 {
     public class Event
@@ -10,5 +8,9 @@ namespace EventManagementApi.Entity
         public string? Location { get; set; }
         public string? Date { get; set; }
         public string? OrganizerId { get; set; } // EntraID = UserID
+
+        public virtual ICollection<EventImage> EventImages { get; set; } = new List<EventImage>();
+        public virtual ICollection<EventDocument> EventDocuments { get; set; } = new List<EventDocument>();
     }
+
 }

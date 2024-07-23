@@ -11,6 +11,8 @@ namespace EventManagementApi.Entities
         }
         public DbSet<Event> Events { get; set; }
         public DbSet<EventRegistration> EventRegistrations { get; set; }
+        public DbSet<EventImage> EventImages { get; set; }
+        public DbSet<EventDocument> EventDocuments { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -35,6 +37,20 @@ namespace EventManagementApi.Entities
             builder.Entity<Event>()
                 .Property(e => e.Date)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            // One-to-many relationship between Event and EventImage
+            builder.Entity<EventImage>()
+                .HasOne(ei => ei.Event)
+                .WithMany(e => e.EventImages)
+                .HasForeignKey(ei => ei.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // One-to-many relationship between Event and EventDocument
+            builder.Entity<EventDocument>()
+                .HasOne(ed => ed.Event)
+                .WithMany(e => e.EventDocuments)
+                .HasForeignKey(ed => ed.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
 
         }
     }

@@ -19,13 +19,14 @@ namespace EventManagementApi.Controllers
         private readonly EventMetadataService _eventMetadataService;
         private readonly UserInteractionsService _userInteractionsService;
         private readonly ServiceBusQueueService _serviceBusQueueService;
-
-        public EventsController(ApplicationDbContext context, IConfiguration configuration, EventMetadataService eventMetadataService, UserInteractionsService userInteractionsService, ServiceBusQueueService serviceBusQueueService)
+        private readonly EventBlobService _eventBlobService;
+        public EventsController(ApplicationDbContext context, IConfiguration configuration, EventMetadataService eventMetadataService, UserInteractionsService userInteractionsService, ServiceBusQueueService serviceBusQueueService, EventBlobService eventBlobService)
         {
             _context = context;
             _eventMetadataService = eventMetadataService;
             _userInteractionsService = userInteractionsService;
             _serviceBusQueueService = serviceBusQueueService;
+            _eventBlobService = eventBlobService;
         }
 
         // Accessible by all authenticated users - GET ALL EVENTS
@@ -289,6 +290,157 @@ namespace EventManagementApi.Controllers
             {
                 return StatusCode(500, new { Message = "An error occurred while fetching the most viewed events.", Details = ex.Message });
             }
+        }
+
+        // Upload Event Images
+        [HttpPost("{id}/upload-images")]
+        [Authorize(Policy = "EventProviderOnly")]
+        public async Task<IActionResult> UploadEventImages(Guid id, List<IFormFile> files)
+        {
+            if (files == null || !files.Any())
+            {
+                return BadRequest("No files selected");
+            }
+
+            var uploadedUrls = new List<string>();
+            var errors = new List<string>();
+
+            foreach (var file in files)
+            {
+                var fileName = $"{id}/{file.FileName}";
+                using (var stream = file.OpenReadStream())
+                {
+                    var result = await _eventBlobService.UploadEventImageAsync(stream, fileName);
+                    if (result.Success)
+                    {
+                        var eventImage = new EventImage
+                        {
+                            Id = Guid.NewGuid(),
+                            EventId = id,
+                            Url = result.Url
+                        };
+
+                        _context.EventImages.Add(eventImage);
+                        uploadedUrls.Add(result.Url!);
+                    }
+                    else
+                    {
+                        errors.Add(result.ErrorMessage!);
+                    }
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            if (errors.Any())
+            {
+                return StatusCode(500, new { UploadedUrls = uploadedUrls, Errors = errors });
+            }
+
+            return Ok(new { ImageUrls = uploadedUrls });
+        }
+
+        // Upload Event Documents
+        [HttpPost("{id}/upload-documents")]
+        [Authorize(Policy = "EventProviderOnly")]
+        public async Task<IActionResult> UploadEventDocuments(Guid id, List<IFormFile> files)
+        {
+            if (files == null || !files.Any())
+            {
+                return BadRequest("No files selected");
+            }
+
+            var uploadedUrls = new List<string>();
+            var errors = new List<string>();
+
+            foreach (var file in files)
+            {
+                var fileName = $"{id}/{file.FileName}";
+                using (var stream = file.OpenReadStream())
+                {
+                    var result = await _eventBlobService.UploadEventDocumentAsync(stream, fileName);
+                    if (result.Success)
+                    {
+                        var eventDocument = new EventDocument
+                        {
+                            Id = Guid.NewGuid(),
+                            EventId = id,
+                            Url = result.Url
+                        };
+
+                        _context.EventDocuments.Add(eventDocument);
+                        uploadedUrls.Add(result.Url!);
+                    }
+                    else
+                    {
+                        errors.Add(result.ErrorMessage!);
+                    }
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            if (errors.Any())
+            {
+                return StatusCode(500, new { UploadedUrls = uploadedUrls, Errors = errors });
+            }
+
+            return Ok(new { DocumentUrls = uploadedUrls });
+        }
+
+        // Get Event Images
+        [HttpGet("{id}/images")]
+        [Authorize]
+        public async Task<IActionResult> GetEventImages(Guid id)
+        {
+            var eventImages = await _context.EventImages.Where(ei => ei.EventId == id).ToListAsync();
+            if (!eventImages.Any())
+            {
+                return NotFound("No images found for this event.");
+            }
+
+            var imageUrls = eventImages.Select(ei => ei.Url).ToList();
+            return Ok(imageUrls);
+        }
+
+        // Get Event Documents
+        [HttpGet("{id}/documents")]
+        [Authorize]
+        public async Task<IActionResult> GetEventDocuments(Guid id)
+        {
+            var eventDocuments = await _context.EventDocuments.Where(ed => ed.EventId == id).ToListAsync();
+            if (!eventDocuments.Any())
+            {
+                return NotFound("No documents found for this event.");
+            }
+            var documentUrls = eventDocuments.Select(ed => ed.Url).ToList();
+            return Ok(documentUrls);
+        }
+
+        // Download Event Image
+        [HttpGet("{id}/image/{fileName}")]
+        [Authorize]
+        public async Task<IActionResult> DownloadEventImage(Guid id, string fileName)
+        {
+            var result = await _eventBlobService.DownloadEventImageAsync($"{id}/{fileName}");
+            if (result.Success)
+            {
+                return File(result.FileStream!, "application/octet-stream", fileName);
+            }
+            return StatusCode(500, result.ErrorMessage);
+        }
+
+        // Download Event Document
+        [HttpGet("{id}/document/{fileName}")]
+        [Authorize]
+        public async Task<IActionResult> DownloadEventDocument(Guid id, string fileName)
+        {
+            var result = await _eventBlobService.DownloadEventDocumentAsync($"{id}/{fileName}");
+            if (result.Success)
+            {
+                return File(result.FileStream!, "application/octet-stream", fileName);
+            }
+            return StatusCode(500, result.ErrorMessage);
         }
     }
 }
