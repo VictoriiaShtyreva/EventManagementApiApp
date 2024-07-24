@@ -36,7 +36,7 @@ namespace EventManagementApi.Services
 
         public async Task<IEnumerable<EventMetadata>> SearchEventsByTypeAndCategoryAsync(string type, string category)
         {
-            var queryText = "SELECT * FROM c WHERE c.type = @type AND c.category = @category";
+            var queryText = "SELECT * FROM c WHERE c.Type = @type AND c.Category = @category";
             return await SearchEventsByCriteriaAsync(queryText, ("@type", type), ("@category", category));
         }
 

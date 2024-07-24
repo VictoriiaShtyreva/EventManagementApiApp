@@ -9,6 +9,7 @@ namespace EventManagementApi.Entity
         public string? Date { get; set; }
         public string? OrganizerId { get; set; } // EntraID = UserID
 
+        public virtual ICollection<EventRegistration> EventRegistrations { get; set; } = new List<EventRegistration>();
         public virtual ICollection<EventImage> EventImages { get; set; } = new List<EventImage>();
         public virtual ICollection<EventDocument> EventDocuments { get; set; } = new List<EventDocument>();
     }

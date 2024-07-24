@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace EventManagementApi.Entity
 {
     public class EventDocument
@@ -5,6 +7,7 @@ namespace EventManagementApi.Entity
         public Guid Id { get; set; }
         public Guid EventId { get; set; }
         public string? Url { get; set; }
+        [JsonIgnore]
         public virtual Event? Event { get; set; }
     }
 }

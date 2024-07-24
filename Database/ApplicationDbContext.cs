@@ -28,10 +28,10 @@ namespace EventManagementApi.Entities
 
             // One-to-many relationship between Event and EventRegistration
             builder.Entity<EventRegistration>()
-                .HasOne<Event>()
-                .WithMany()
-                .HasForeignKey(er => er.EventId)
-                .OnDelete(DeleteBehavior.Cascade);
+           .HasOne(er => er.Event)
+           .WithMany(e => e.EventRegistrations)
+           .HasForeignKey(er => er.EventId)
+           .OnDelete(DeleteBehavior.Cascade);
 
             // Default values and constraints
             builder.Entity<Event>()

@@ -40,11 +40,16 @@ namespace EventManagementApi.Controllers
         {
             try
             {
-                var events = await _context.Events.ToListAsync();
+                var events = await _context.Events
+                    .Include(e => e.EventImages)
+                    .Include(e => e.EventDocuments)
+                    .ToListAsync();
+
                 if (events.Count == 0)
                 {
                     return Ok(new { Message = "No events registered yet." });
                 }
+
                 return Ok(events);
             }
             catch (Exception ex)
@@ -60,6 +65,8 @@ namespace EventManagementApi.Controllers
         {
             try
             {
+                var organizerId = User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value;
+
                 var newEvent = new Event
                 {
                     Id = Guid.NewGuid(),
@@ -67,7 +74,7 @@ namespace EventManagementApi.Controllers
                     Description = newEventDto.Description,
                     Location = newEventDto.Location,
                     Date = newEventDto.Date,
-                    OrganizerId = User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value
+                    OrganizerId = organizerId
                 };
 
                 _context.Events.Add(newEvent);
@@ -84,7 +91,7 @@ namespace EventManagementApi.Controllers
 
                 await _eventMetadataService.AddEventMetadataAsync(eventMetadata);
 
-                return Ok(new { Message = $"Event: {newEvent.Name}, {eventMetadata.Type}, {eventMetadata.Category} created successfully" });
+                return Ok(new { Message = $"Event: {newEvent.Name}, Type: {eventMetadata.Type}, Category: {eventMetadata.Category} created successfully" });
             }
             catch (Exception ex)
             {
@@ -181,7 +188,7 @@ namespace EventManagementApi.Controllers
 
                 var registrationDto = new EventRegistrationDto
                 {
-                    EventId = id.ToString(),
+                    EventId = id,
                     UserId = userId,
                     Action = "Register"
                 };
@@ -193,15 +200,23 @@ namespace EventManagementApi.Controllers
                     Action = registrationDto.Action
                 };
 
-                // Add user interaction
-                var userInteraction = new UserInteraction
+                // Check user interaction
+                var existingInteraction = await _userInteractionsService.GetUserInteractionAsync(id.ToString(), userId!);
+                if (existingInteraction != null)
                 {
-                    Id = Guid.NewGuid().ToString(),
-                    EventId = registrationDto.EventId,
-                    InteractionType = "Register",
-                    UserId = registrationDto.UserId
-                };
-                await _userInteractionsService.AddUserInteractionAsync(userInteraction);
+                    return BadRequest(new { Message = "User is already registered for this event." });
+                }
+                else
+                {
+                    var userInteraction = new UserInteraction
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        EventId = registrationDto.EventId.ToString(),
+                        InteractionType = "Register",
+                        UserId = registrationDto.UserId
+                    };
+                    await _userInteractionsService.AddUserInteractionAsync(userInteraction);
+                }
 
                 // Send event registration message to BusQueue
                 var messageBody = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(registration));
@@ -224,35 +239,31 @@ namespace EventManagementApi.Controllers
             try
             {
                 var userId = User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value;
-
-                var registration = await _context.EventRegistrations
-                    .FirstOrDefaultAsync(r => r.EventId == id.ToString() && r.UserId == userId);
-
-                if (registration == null)
+                if (userId == null)
                 {
-                    return NotFound(new { Message = "Registration not found." });
+                    return BadRequest(new { Message = "User ID is missing." });
+                }
+
+                // Check if user interaction exists and delete it
+                var existingInteraction = await _userInteractionsService.GetUserInteractionAsync(id.ToString(), userId!);
+                if (existingInteraction != null)
+                {
+                    await _userInteractionsService.DeleteUserInteractionAsync(id.ToString(), userId!);
+                }
+                else
+                {
+                    return NotFound(new { Message = "User interaction not found for this event." });
                 }
 
                 var unRegistrationDto = new EventRegistrationDto
                 {
-                    EventId = id.ToString(),
+                    EventId = id,
                     UserId = userId,
                     Action = "Unregister"
                 };
 
-                // Add user interaction
-                var userInteraction = new UserInteraction
-                {
-                    Id = Guid.NewGuid().ToString(),
-                    EventId = unRegistrationDto.EventId,
-                    InteractionType = "Unregister",
-                    UserId = unRegistrationDto.UserId
-                };
-                await _userInteractionsService.AddUserInteractionAsync(userInteraction);
-
-
                 // Send event registration message to BusQueue
-                var messageBody = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(registration));
+                var messageBody = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(unRegistrationDto));
                 var message = new ServiceBusMessage(messageBody) { SessionId = userId };
                 await _serviceBusQueueService.SendMessageAsync(message);
 
@@ -280,14 +291,14 @@ namespace EventManagementApi.Controllers
             }
         }
 
-        // Get most viewed events (Cosmos DB NoSQL)
-        [HttpGet("most-viewed")]
+        // Get most register events (Cosmos DB NoSQL)
+        [HttpGet("most-register")]
         [Authorize]
-        public async Task<IActionResult> GetMostViewedEvents()
+        public async Task<IActionResult> GetMostRegisteredEvents()
         {
             try
             {
-                var results = await _userInteractionsService.GetMostViewedEventsAsync();
+                var results = await _userInteractionsService.GetMostRegisteredEventsAsync();
                 return Ok(results);
             }
             catch (Exception ex)
@@ -301,7 +312,7 @@ namespace EventManagementApi.Controllers
         [Authorize(Policy = "EventProviderOnly")]
         public async Task<IActionResult> UploadEventImages(Guid id, List<IFormFile> files)
         {
-            if (files == null || !files.Any())
+            if (files == null || files.Count == 0)
             {
                 return BadRequest("No files selected");
             }
@@ -356,7 +367,7 @@ namespace EventManagementApi.Controllers
         [Authorize(Policy = "EventProviderOnly")]
         public async Task<IActionResult> UploadEventDocuments(Guid id, List<IFormFile> files)
         {
-            if (files == null || !files.Any())
+            if (files == null || files.Count == 0)
             {
                 return BadRequest("No files selected");
             }
@@ -412,7 +423,7 @@ namespace EventManagementApi.Controllers
         public async Task<IActionResult> GetEventImages(Guid id)
         {
             var eventImages = await _context.EventImages.Where(ei => ei.EventId == id).ToListAsync();
-            if (!eventImages.Any())
+            if (eventImages.Count == 0)
             {
                 return NotFound("No images found for this event.");
             }
@@ -427,7 +438,7 @@ namespace EventManagementApi.Controllers
         public async Task<IActionResult> GetEventDocuments(Guid id)
         {
             var eventDocuments = await _context.EventDocuments.Where(ed => ed.EventId == id).ToListAsync();
-            if (!eventDocuments.Any())
+            if (eventDocuments.Count == 0)
             {
                 return NotFound("No documents found for this event.");
             }

@@ -22,31 +22,15 @@ namespace EventManagementApi.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("EventManagementApi.Entity.EventRegistrations", b =>
-                {
-                    b.Property<Guid?>("EventId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("UserId")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("RegistrationDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("EventId", "UserId");
-
-                    b.ToTable("EventRegistrations");
-                });
-
-            modelBuilder.Entity("EventManagementApi.Entity.Events", b =>
+            modelBuilder.Entity("EventManagementApi.Entity.Event", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<DateTime?>("Date")
+                    b.Property<string>("Date")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("text")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<string>("Description")
@@ -68,13 +52,96 @@ namespace EventManagementApi.Migrations
                     b.ToTable("Events");
                 });
 
-            modelBuilder.Entity("EventManagementApi.Entity.EventRegistrations", b =>
+            modelBuilder.Entity("EventManagementApi.Entity.EventDocument", b =>
                 {
-                    b.HasOne("EventManagementApi.Entity.Events", null)
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Url")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId");
+
+                    b.ToTable("EventDocuments");
+                });
+
+            modelBuilder.Entity("EventManagementApi.Entity.EventImage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Url")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId");
+
+                    b.ToTable("EventImages");
+                });
+
+            modelBuilder.Entity("EventManagementApi.Entity.EventRegistration", b =>
+                {
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("UserId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Action")
+                        .HasColumnType("text");
+
+                    b.HasKey("EventId", "UserId");
+
+                    b.ToTable("EventRegistrations");
+                });
+
+            modelBuilder.Entity("EventManagementApi.Entity.EventDocument", b =>
+                {
+                    b.HasOne("EventManagementApi.Entity.Event", "Event")
+                        .WithMany("EventDocuments")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+                });
+
+            modelBuilder.Entity("EventManagementApi.Entity.EventImage", b =>
+                {
+                    b.HasOne("EventManagementApi.Entity.Event", "Event")
+                        .WithMany("EventImages")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+                });
+
+            modelBuilder.Entity("EventManagementApi.Entity.EventRegistration", b =>
+                {
+                    b.HasOne("EventManagementApi.Entity.Event", null)
                         .WithMany()
                         .HasForeignKey("EventId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("EventManagementApi.Entity.Event", b =>
+                {
+                    b.Navigation("EventDocuments");
+
+                    b.Navigation("EventImages");
                 });
 #pragma warning restore 612, 618
         }
