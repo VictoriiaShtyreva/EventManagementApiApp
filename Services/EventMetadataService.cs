@@ -51,9 +51,16 @@ namespace EventManagementApi.Services
             await _container.CreateItemAsync(eventMetadata, new PartitionKey(eventMetadata.EventId));
         }
 
-        public async Task DeleteEventMetadataAsync(string eventMetadataId)
+        public async Task DeleteEventMetadataAsync(string eventId)
         {
-            await _container.DeleteItemAsync<EventMetadata>(eventMetadataId, new PartitionKey(eventMetadataId));
+            var query = new QueryDefinition("SELECT * FROM c WHERE c.eventId = @eventId")
+               .WithParameter("@eventId", eventId);
+
+            var iterator = _container.GetItemQueryIterator<EventMetadata>(query);
+            var response = await iterator.ReadNextAsync();
+            var eventMetadata = response.FirstOrDefault();
+
+            await _container.DeleteItemAsync<EventMetadata>(eventMetadata!.Id, new PartitionKey(eventMetadata.EventId));
         }
 
     }

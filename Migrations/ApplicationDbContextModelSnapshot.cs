@@ -130,11 +130,13 @@ namespace EventManagementApi.Migrations
 
             modelBuilder.Entity("EventManagementApi.Entity.EventRegistration", b =>
                 {
-                    b.HasOne("EventManagementApi.Entity.Event", null)
-                        .WithMany()
+                    b.HasOne("EventManagementApi.Entity.Event", "Event")
+                        .WithMany("EventRegistrations")
                         .HasForeignKey("EventId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Event");
                 });
 
             modelBuilder.Entity("EventManagementApi.Entity.Event", b =>
@@ -142,6 +144,8 @@ namespace EventManagementApi.Migrations
                     b.Navigation("EventDocuments");
 
                     b.Navigation("EventImages");
+
+                    b.Navigation("EventRegistrations");
                 });
 #pragma warning restore 612, 618
         }

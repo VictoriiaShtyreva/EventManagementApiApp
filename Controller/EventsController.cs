@@ -160,11 +160,15 @@ namespace EventManagementApi.Controllers
                     return NotFound(new { Message = "Event not found." });
                 }
 
-                // Delete event metadata
+                //Delete event metadata
                 var eventMetadata = await _eventMetadataService.SearchEventsByEventIdAsync(id.ToString());
-                foreach (var metadata in eventMetadata)
+                if (eventMetadata != null)
                 {
-                    await _eventMetadataService.DeleteEventMetadataAsync(metadata.Id!);
+                    await _eventMetadataService.DeleteEventMetadataAsync(id.ToString());
+                }
+                else
+                {
+                    return NotFound(new { Message = "Event metadata not found for this event." });
                 }
 
                 _context.Events.Remove(eventToDelete);

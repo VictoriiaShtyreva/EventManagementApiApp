@@ -81,22 +81,13 @@ namespace EventManagementApi.Services
                     return userInteraction;
                 }
             }
-
             return null!;
         }
 
         public async Task DeleteUserInteractionAsync(string eventId, string userId)
         {
             var userInteraction = await GetUserInteractionAsync(eventId, userId);
-            if (userInteraction != null)
-            {
-                await _container.DeleteItemAsync<UserInteraction>(userInteraction.Id, new PartitionKey(userInteraction.EventId));
-                Console.WriteLine($"Deleted user interaction: {JsonConvert.SerializeObject(userInteraction)}");
-            }
-            else
-            {
-                Console.WriteLine("User interaction not found for deletion");
-            }
+            await _container.DeleteItemAsync<UserInteraction>(userInteraction.Id, new PartitionKey(userInteraction.EventId));
         }
     }
 }
