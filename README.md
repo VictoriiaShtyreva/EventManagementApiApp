@@ -7,231 +7,167 @@ Link to AzureFunction Repo: https://github.com/VictoriiaShtyreva/EventManagement
 ![Azure](https://img.shields.io/badge/Azure-Enabled-blue)
 ![ASP.NET Core](https://img.shields.io/badge/ASP.NET%20Core-8.0-blue)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Enabled-blue)
+![Nuget](https://img.shields.io/badge/NuGet-004880?style=for-the-badge&logo=nuget&logoColor=white)
+![Swagger](https://img.shields.io/badge/Swagger-85EA2D?style=for-the-badge&logo=Swagger&logoColor=white)
+![Postman](https://img.shields.io/badge/Postman-FF6C37?style=for-the-badge&logo=Postman&logoColor=white)
 
 ## Project Description
 
-The Event Management System is a web application built with ASP.NET Core, Entity Framework Core, and PostgreSQL. It uses ASP.NET Core Identity for user authentication and authorization, and integrates with Azure services for storage and monitoring.
+The Event Management System is a web application built with ASP.NET Core, Entity Framework Core, and PostgreSQL. It uses ASP.NET Core Identity, EntraID, and Microsoft Graph for user authentication and authorization, and integrates with Azure services for storage and monitoring.
+
+## Table of Contents
+
+- [Features](#features)
+- [Getting Started](#getting-started)
+- [Database Structure](#database-structure)
+- [Workflow](#workflow)
+- [API Endpoints](#api-endpoints)
+- [Screenhots](#screenhots)
+- [Video Demo](#video-demo)
+- [Contact Information](#contact-information)
 
 ## Features
 
-1. **User registration and authentication** with ASP.NET Core Identity.
-2. **Role-based authorization** (Admin, EventProvider, User).
-3. **CRUD operations** for events.
-4. **Event registration with FIFO processing** using Azure Service Bus and Azure Functions.
-5. **Storage of event metadata and user interactions** in Cosmos DB for NoSQL. (_Optional_)
-6. **Storage of images and documents** in Azure Blob Storage.
-7. **Caching of event data** with Redis. (_Optional_)
-8. **Monitoring and diagnostics** with Azure Application Insights.
+- User registration and authentication with ASP.NET Core Identity.
+- Role-based authorization (Admin, EventProvider, User).
+- EntraID & Microsoft Graph to manage all registration, login, and authentication.
+  - UserId taken from EntraID.
+- CRUD operations for events.
+- Event registration with FIFO processing using Azure Service Bus and Azure Functions.
+- Storage of event metadata and user interactions in Cosmos DB for NoSQL.
+- Storage of images and documents in Azure Blob Storage.
+- Monitoring and diagnostics with Azure Application Insights.
+
+## Getting Started
+
+This guide will help you set up the Event Management API project on your local machine for development and testing purposes.
+
+### Prerequisites
+
+Before you begin, ensure you have the following installed on your system:
+
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- [PostgreSQL](https://www.postgresql.org/download/)
+- [Azure](https://learn.microsoft.com/en-us/azure/?product=popular)
+
+### Configuration
+
+1. **Clone the repository**
+
+   ```sh
+   git clone https://github.com/your-username/event-management-api.git
+   cd event-management-api
+   ```
+
+2. **Set up the database**
+
+   Make sure PostgreSQL is running. Create a new database for the project. Update the connection string in `appsettings.json` with your database details.
+
+3. **Azure Services Setup**
+
+   - **Azure Blob Storage**: Create two containers: `eventimages` and `eventdocuments`.
+   - **Azure Service Bus**: Create a queue named `appqueue`.
+   - **Azure Cosmos DB**: Set up a Cosmos DB account with containers for `EventMetadata` and `UserInteractions`.
+
+4. **Update Configuration Files**
+
+   Copy `appsettings.json` to `appsettings.Development.json` and update the necessary fields:
+
+   ```json
+   {
+     "EntraId": {
+       "Instance": "https://login.microsoftonline.com/",
+       "Domain": "your-domain.onmicrosoft.com",
+       "TenantId": "your-tenant-id",
+       "ClientId": "your-client-id",
+       "ClientSecret": "your-client-secret",
+       "ServicePrincipalId": "your-service-principal-id",
+       "CallbackPath": "/signin-oidc",
+       "Scopes": {
+         "access_as_user": "api://your-client-id/access_as_user",
+         "access_as_admin": "api://your-client-id/access_as_admin",
+         "access_as_event_provider": "api://your-client-id/access_as_event_provider"
+       },
+       "AppRoles": {
+         "User": "role-id-for-user",
+         "Admin": "role-id-for-admin",
+         "EventProvider": "role-id-for-event-provider"
+       }
+     },
+     "ConnectionStrings": {
+       "DefaultConnection": "Host=your-host;Database=your-database;Port=5432;User Id=your-username;Password=your-password;Ssl Mode=Require;"
+     },
+     "ApplicationInsights": {
+       "ConnectionString": "your-application-insights-connection-string"
+     },
+     "ServiceBus": {
+       "QueueName": "appqueue",
+       "ConnectionString": "your-service-bus-connection-string"
+     },
+     "BlobStorage": {
+       "ConnectionString": "your-blob-storage-connection-string",
+       "EventImagesContainer": "eventimages",
+       "EventDocumentsContainer": "eventdocuments"
+     },
+     "CosmosDb": {
+       "Account": "your-cosmos-db-account",
+       "Key": "your-cosmos-db-key",
+       "EventMetadataContainer": "EventMetadata",
+       "UserInteractionsContainer": "UserInteractions",
+       "DatabaseName": "EventManagement"
+     }
+   }
+   ```
+
+5. **Run Database Migrations**
+
+   Ensure your database is set up correctly:
+
+   ```sh
+   dotnet ef database update
+   ```
+
+6. **Azure Functions**
+
+This project also utilizes Azure Functions for certain tasks. You can find the related repository [here](https://github.com/VictoriiaShtyreva/EventManagementFunctionApp).
+
+### Running the Application
+
+To run the application, use the following command:
+
+```sh
+dotnet run
+```
+
+This will start the application and you can access the API at `https://localhost:5001`.
 
 ## Database Structure
 
-- **Cosmos DB for PostgreSQL**
-  - **Users:** Stores user information including authentication details.
-  - **Events:** Stores details of each event.
-  - **EventRegistrations:** Tracks which users have registered for which events.
-- **Cosmos DB for NoSQL**
+The following diagram illustrates the architecture of the Event Management API, highlighting the interaction between various components:
+![Database Structure](/readme-doc/images/1.png)
 
-  - **EventMetadata:** Stores additional metadata for events (tags, type, ). When users search for events, we can use metadata.
-  - **UserInteractions:** Stores user interactions related to events.
-  - Example:
+### Flow of Data
 
-    ```csharp
-      public async Task<IEnumerable<EventMetadata>> SearchEventsByMetadataAsync(string[] tags, string type, string category)
-      {
-          var query = new QueryDefinition("SELECT * FROM c WHERE ARRAY_CONTAINS(@tags, c.tags) AND c.type = @type AND c.category = @category")
-              .WithParameter("@tags", tags)
-              .WithParameter("@type", type)
-              .WithParameter("@category", category);
+**User Registration**: Users are registered via Azure Active Directory. Upon registration, roles are assigned to users based on their intended access level (User, Admin, EventProvider). By default all new users are assigned as `User`.
 
-          var iterator = _eventMetadataContainer.GetItemQueryIterator<EventMetadata>(query);
-          var results = new List<EventMetadata>();
+**Event Creation and Management**: Events are created and managed in the Azure Database for PostgreSQL Servers. Documents and images related to events are uploaded to Azure Blob Storage and linked to the respective events. The URLs of these documents and images are stored in the Azure Database for PostgreSQL Servers.
 
-          while (iterator.HasMoreResults)
-          {
-              var response = await iterator.ReadNextAsync();
-              results.AddRange(response.ToList());
-          }
+**User Interactions**: Users can register for events, which logs interactions in the UserInteraction entity stored in Azure Cosmos DB. Event metadata, such as type and category, is also stored in Azure Cosmos DB for efficient querying and management. Azure Service Bus is used for handling messaging and event-driven processes within the system.
 
-          return results;
-      }
-
-      public async Task<IEnumerable<Event>> GetMostViewedEventsAsync()
-      {
-          var query = new QueryDefinition("SELECT c.eventId, COUNT(c.id) as views FROM c WHERE c.interactionType = 'view' GROUP BY c.eventId ORDER BY views DESC");
-
-          var iterator = _userInteractionsContainer.GetItemQueryIterator<UserInteraction>(query);
-          var results = new List<UserInteraction>();
-
-          while (iterator.HasMoreResults)
-          {
-              var response = await iterator.ReadNextAsync();
-              results.AddRange(response.ToList());
-          }
-
-          var eventIds = results.Select(r => r.EventId).Distinct();
-          var events = new List<Event>();
-
-          foreach (var eventId in eventIds)
-          {
-              var eventResponse = await _eventsContainer.ReadItemAsync<Event>(eventId, new PartitionKey(eventId));
-              events.Add(eventResponse.Resource);
-          }
-
-          return events;
-      }
-    ```
-
-- **Azure Blob Storage**
-  - **EventImages:** Stores images related to events.
-  - **UserProfiles:** Stores user profile pictures.
-  - **EventDocuments:** Stores documents related to events.
+**Integration with Azure Services**: The application leverages Azure Blob Storage for storing event-related media.
 
 ## Workflow
 
-1. **User accesses the Event Management System web app and signs in.**
-2. **Browser pulls static resources from Azure CDN.**
-3. **User searches for events by metadata.** The web app checks Redis for cached search results.
-4. **If cache miss,** the web app queries Cosmos DB for event data and stores the results in Redis.
-5. **Web app retrieves event details from Redis** if available, otherwise from Cosmos DB, and updates the cache.
-6. **Pulls event-related images and documents from Azure Blob Storage.**
-7. **User registers/unregisters for an event.** Registration information is placed in an Azure Service Bus queue with sessions enabled.
-8. **Azure Functions processes the registration/unregistration** from the Service Bus queue, ensuring FIFO order, use transaction to modify event's properties.
-9. **Azure Functions updates the registration status in Cosmos DB** and may trigger other necessary actions such as sending confirmation emails.
-10. **Application Insights monitors and diagnoses issues** in the application.
+The following diagram illustrates the workflow of the Event Management API, showcasing the interaction between users, application services, and various Azure components:
+![Workflow](/readme-doc/images/2.png)
 
-## Alternative account management strategy
+## API Endpoints
 
-- Instead of managing ApplicationUser in the code base, you can consider using EntraID & Microsoft Graph to manage all registration. login, authentication (In this case, there will be no ApplicationUser in your code base, but only use UserId in Event registration. UserId will be taken from EntraId)
-- Example:
+All the endpoints of the API are documented and can be tested directly on the generated Swagger page. From there you can view each endpoint URL, their HTTP methods, request body structures and authorization requirements. Access the Swagger page from this [link](https://event-management-system-2024.azurewebsites.net/index.html).
+![Swagger](/readme-doc/images/3.png)
 
-  - Dependency Injection in `Program.cs`
+## Screenhots
 
-  ```csharp
-  builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("EntraID"));
+## Video Demo
 
-  // Add Microsoft Graph SDK
-  var confidentialClientApplication = ConfidentialClientApplicationBuilder
-    .Create(builder.Configuration["EntraId:ClientId"])
-    .WithTenantId(builder.Configuration["EntraId:TenantId"])
-    .WithClientSecret(builder.Configuration["EntraId:ClientSecret"])
-    .Build();
-
-  builder.Services.AddSingleton<IConfidentialClientApplication>(confidentialClientApplication);
-  builder.Services.AddSingleton<IAuthenticationProvider, ClientCredentialProvider>();
-
-  builder.Services.AddSingleton<GraphServiceClient>(provider =>
-  {
-      var authProvider = provider.GetRequiredService<IAuthenticationProvider>();
-      return new GraphServiceClient(authProvider);
-  });
-  ```
-
-  - AccountsController:
-
-  ```csharp
-  using Microsoft.AspNetCore.Authorization;
-  using Microsoft.AspNetCore.Mvc;
-  using Microsoft.Graph;
-  using Microsoft.Identity.Web.Resource;
-  using System.Threading.Tasks;
-
-  namespace EventManagementApi.Controllers
-  {
-      [Route("api/v1/[controller]")]
-      [ApiController]
-      public class AccountController : ControllerBase
-      {
-          private readonly GraphServiceClient _graphServiceClient;
-
-          public AccountController(GraphServiceClient graphServiceClient)
-          {
-              _graphServiceClient = graphServiceClient;
-          }
-
-          [HttpPost("register")]
-          [Authorize]
-          [RequiredScopeOrAppPermission(
-              RequiredScopesConfigurationKey = "EntraId:Scopes:Write",
-              RequiredAppPermissionsConfigurationKey = "EntraId:AppPermissions:Write"
-          )]
-          public async Task<IActionResult> Register([FromBody] UserRegistrationDto registrationDto)
-          {
-              var user = new User
-              {
-                  AccountEnabled = true,
-                  DisplayName = registrationDto.DisplayName,
-                  MailNickname = registrationDto.UserPrincipalName,
-                  UserPrincipalName = $"{registrationDto.UserPrincipalName}@{_graphServiceClient.Client.ClientOptions.TenantId}",
-                  PasswordProfile = new PasswordProfile
-                  {
-                      ForceChangePasswordNextSignIn = false,
-                      Password = registrationDto.Password
-                  }
-              };
-
-              await _graphServiceClient.Users.Request().AddAsync(user);
-              return Ok(new { Message = "User registered successfully" });
-          }
-      }
-
-      public class UserRegistrationDto
-      {
-          public string DisplayName { get; set; }
-          public string UserPrincipalName { get; set; }
-          public string Password { get; set; }
-      }
-  }
-  ```
-
-  - appsettings.json
-
-  ```json
-  {
-    "EntraId": {
-      "Instance": "https://login.microsoftonline.com/",
-      "Domain": "yourtenant.onmicrosoft.com",
-      "TenantId": "your-tenant-id",
-      "ClientId": "your-client-id",
-      "ClientSecret": "your-client-secret",
-      "CallbackPath": "/signin-oidc",
-      "Scopes": {
-        "Read": "api://your-api-client-id/Events.Read",
-        "Write": "api://your-api-client-id/Events.Write"
-      },
-      "AppPermissions": {
-        "Read": "EventProvider",
-        "Write": "Admin"
-      }
-    },
-    "ConnectionStrings": {
-      "DefaultConnection": "Host=your_host;Database=your_db;Username=your_user;Password=your_password"
-    },
-    "ApplicationInsights": {
-      "ConnectionString": "your_application_insights_connection_string"
-    },
-    "RedisCache": {
-      "ConnectionString": "your_redis_cache_connection_string"
-    },
-    "ServiceBus": {
-      "QueueName": "event-registrations-queue",
-      "ConnectionString": "your_service_bus_connection_string"
-    },
-    "BlobStorage": {
-      "ConnectionString": "your_blob_storage_connection_string"
-    },
-    "CosmosDb": {
-      "Account": "your_cosmos_db_account_endpoint",
-      "Key": "your_cosmos_db_account_key",
-      "DatabaseName": "EventManagement"
-    },
-    "Logging": {
-      "LogLevel": {
-        "Default": "Information",
-        "Microsoft": "Warning",
-        "Microsoft.Hosting.Lifetime": "Information"
-      }
-    },
-    "AllowedHosts": "*"
-  }
-  ```
+## Contact Information
