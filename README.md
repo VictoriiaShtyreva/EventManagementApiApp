@@ -1,7 +1,5 @@
 # Event Management System API
 
-Link to AzureFunction Repo: https://github.com/VictoriiaShtyreva/EventManagementFunctionApp
-
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Azure](https://img.shields.io/badge/Azure-Enabled-blue)
@@ -243,7 +241,12 @@ The Azure Blob Storage containers play a crucial role in managing and storing me
 
 ### Azure Function App
 
+Link to Azure Function Repo: https://github.com/VictoriiaShtyreva/EventManagementFunctionApp
+
+These screenshots provide a detailed view of the `ServiceBusQueueTrigger` function on the Azure portal.
+
 ![Azure Function App](/readme-doc/screenshots/Azure%20Function%20App.png)
+![Azure Function App2](/readme-doc/screenshots/Azure%20Function%20App2.png)
 
 ### Azure App Service
 
@@ -261,4 +264,55 @@ These screenshots show the Event Management API registered as an enterprise appl
 
 ## Video Demo
 
+In this video demo, we will walk you through the crucial API endpoints of the Event Management System project, showcasing how they work and their interactions with various Azure services. Below are the key highlights that will be covered in the demo:
+
+### User Registration Endpoint
+
+Endpoint: `POST /api/v1/accounts/register`
+
+[![Watch the video](https://img.youtube.com/vi/eE7LiRByAFw/0.jpg)](https://youtu.be/eE7LiRByAFw)
+
+### Authentication and Authorization using Entra ID (Azure Active Directory) in Postman
+
+Endpoint: `GET /api/v1/events/most-register`
+
+[![Watch the video](https://img.youtube.com/vi/IUxLC9btDJ8/0.jpg)](https://youtu.be/IUxLC9btDJ8)
+
+### Event Registration Endpoint (user not provide email for sending comfirmation email)
+
+Endpoint: `POST /api/v1/events/{id}/register`
+
+[![Watch the video](https://img.youtube.com/vi/cWye3_N2COY/0.jpg)](https://youtu.be/cWye3_N2COY)
+
+### Event Unregistration Endpoint (user provide email for sending comfirmation email)
+
+Endpoint: `DELETE /api/v1/events/{id}/unregister`
+
+[![Watch the video](https://img.youtube.com/vi/HgSofRkij_4/0.jpg)](https://youtu.be/HgSofRkij_4)
+
+### Event Create Endpoint using Swagger
+
+Endpoint: `POST /api/v1/events`
+
+[![Watch the video](https://img.youtube.com/vi/aGuZX61eRzY/0.jpg)](https://youtu.be/aGuZX61eRzY)
+
+### Event Upload Images Endpoint using Swagger
+
+Endpoint: `POST /api/v1/events/{id}/upload-images`
+
+[![Watch the video](https://img.youtube.com/vi/M0-GkCaGxk0/0.jpg)](https://youtu.be/M0-GkCaGxk0)
+
+### Event Upload Documents Endpoint using Swagger
+
+Endpoint: `POST /api/v1/events/{id}/upload-documents`
+
+[![Watch the video](https://img.youtube.com/vi/txIdEXDpgSE/0.jpg)](https://youtu.be/txIdEXDpgSE)
+
 ## Contact Information
+
+For any questions, suggestions, or feedback, feel free to reach out:
+
+- **Project Owner:** Viktoriia Shtyreva
+- **Email:** [vikatori1409801@gmail.com](mailto:vikatori1409801@gmail.com)
+- **LinkedIn:** [Viktoriia Shtyreva](https://www.linkedin.com/in/viktoriiashtyreva/)
+- **GitHub:** [VictoriiaShtyreva](https://github.com/VictoriiaShtyreva)

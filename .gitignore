@@ -2,7 +2,7 @@ bin/
 obj/
 .vscode/
 *.http
-Migrations
+Migrations/
 
 # User-specific files
 appsettings.json
