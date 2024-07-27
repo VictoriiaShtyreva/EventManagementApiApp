@@ -166,7 +166,98 @@ The following diagram illustrates the workflow of the Event Management API, show
 All the endpoints of the API are documented and can be tested directly on the generated Swagger page. From there you can view each endpoint URL, their HTTP methods, request body structures and authorization requirements. Access the Swagger page from this [link](https://event-management-system-2024.azurewebsites.net/index.html).
 ![Swagger](/readme-doc/images/3.png)
 
+### Important Note
+
+Please note that the Azure Cosmos DB for PostgreSQL Cluster used in this project has been stopped, as this project is being developed for educational purposes. Due to this, it is currently impossible to perform CRUD operations with events. This limitation affects the following operations:
+
+- Creating new events
+- Reading event data
+- Updating existing events
+- Deleting events
+
+When the database service is active, the API endpoints will fully support these operations, allowing for seamless interaction with the event data.
+
 ## Screenhots
+
+### Azure Resources groups
+
+The screenshot captures the essential Azure resources grouped into three main resource groups, each serving specific purposes:
+
+- `appsvc_windows_centralus`: Hosts the main application services and provides monitoring and logging capabilities.
+- `EventManagementAPI`: Contains the databases (both SQL and NoSQL) and the messaging service essential for the event management application.
+- `eventregistrationfuncti2`: Manages the Azure Functions and related resources for handling event registrations, along with storage and monitoring services.
+
+![Azure Resources groups](/readme-doc/screenshots/Azure%20Resources%20groups.png)
+
+### Azure Cosmos DB account
+
+These screenshots provide the structure and content of the EventMetadata and UserInteractions collections in Azure Cosmos DB.
+
+- `EventMetadata`: Stores metadata information about events, including type, category, and related event IDs.
+- `UserInteractions`: Records interactions of users with events, such as registration actions, with details on the user and the event involved.
+
+![Azure Cosmos DB account.EventMetadata](/readme-doc/screenshots/Azure%20Cosmos%20DB%20account.EvenMetadata.png)
+![Azure Cosmos DB account.UserInteractions](/readme-doc/screenshots/Azure%20Cosmos%20DB%20account.UserInteractions.png)
+
+### Azure Cosmos DB for PostgreSQL Cluster
+
+This screenshot captures the essential details and performance metrics of Azure Cosmos DB for PostgreSQL Cluster, which is a critical component of Event Management API project. The database is configured as a single node with no replicas or high availability, and it is hosted in the North Europe region within the EventManagementAPI resource group.
+
+Key points:
+
+- The database uses Citus 12.1 on PostgreSQL 16.
+- Monitoring shows low CPU and storage utilization.
+- Backup is configured as zone-redundant to ensure data durability.
+
+![Azure Cosmos DB for PostgreSQL Cluster](/readme-doc/screenshots/Azure%20Cosmos%20DB%20for%20PostgreSQL%20Cluster.png)
+
+### Application Insights
+
+These screenshots provide a comprehensive view of how to monitor and analyze the performance, failures, and custom events in app using Application Insights:
+
+- `Failures Overview`: Helps identify and diagnose issues causing failed requests.
+- `Performance Overview`: Provides insights into the duration of operations and identifies potential performance bottlenecks.
+- `Custom Metrics Query`: Shows how to query and analyze custom telemetry data such as `UserRegistered` and `UserEmailUpdated events`.
+
+![Application Insights](/readme-doc/screenshots/Application%20Insights.png)
+![Application Insights2](/readme-doc/screenshots/Application%20Insights2.png)
+![Application Insights3](/readme-doc/screenshots/Application%20Insights3.png)
+![Application Insights4](/readme-doc/screenshots/Application%20Insights4.png)
+
+### Azure Service Bus
+
+The screenshot provides an overview of the eventmanagement2024 Service Bus Namespace used in Event Management API project.
+
+![Azure Service Bus](/readme-doc/screenshots/Azure%20Service%20Bus.png)
+
+### Azure Storage account
+
+The Azure Blob Storage containers play a crucial role in managing and storing media files (documents and images) related to events in the Event Management API project. Here is a summary of their functions:
+
+- The `eventdocuments` and `eventimage`s containers are used to store files uploaded by users or event organizers.
+- Each event has a unique folder identified by the `event ID`, ensuring all related files are organized and easily accessible.
+
+![Storage account](/readme-doc/screenshots/Storage%20account.png)
+![Storage account. EventDocuments](/readme-doc/screenshots/Storage%20account.EventDocuments.png)
+![Storage account. EventImages](/readme-doc/screenshots/Storage%20account.EventImages.png)
+
+### Azure Function App
+
+![Azure Function App](/readme-doc/screenshots/Azure%20Function%20App.png)
+
+### Azure App Service
+
+This Azure App Service configuration demonstrates the deployment environment for Event Management API.
+
+![Azure App Service](/readme-doc/screenshots/Azure%20App%20Service.png)
+
+### Azure Entra Id
+
+These screenshots show the Event Management API registered as an enterprise application in Microsoft Entra ID.
+
+![EntraId](/readme-doc/screenshots/Entra%20Id.png)
+![EntraId2](/readme-doc/screenshots/Entra%20Id2.png)
+![EntraId3](/readme-doc/screenshots/EntraId3.png)
 
 ## Video Demo
 
