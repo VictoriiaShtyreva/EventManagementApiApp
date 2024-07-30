@@ -8,6 +8,7 @@
 ![Nuget](https://img.shields.io/badge/NuGet-004880?style=for-the-badge&logo=nuget&logoColor=white)
 ![Swagger](https://img.shields.io/badge/Swagger-85EA2D?style=for-the-badge&logo=Swagger&logoColor=white)
 ![Postman](https://img.shields.io/badge/Postman-FF6C37?style=for-the-badge&logo=Postman&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2CA5E0?style=for-the-badge&logo=docker&logoColor=white")
 
 ## Project Description
 
@@ -16,7 +17,7 @@ The Event Management System is a web application built with ASP.NET Core, Entity
 ## Table of Contents
 
 - [Features](#features)
-- [Getting Started](#getting-started)
+- [Getting Started with Docker](#getting-started-with-docker)
 - [Database Structure](#database-structure)
 - [Workflow](#workflow)
 - [API Endpoints](#api-endpoints)
@@ -36,7 +37,7 @@ The Event Management System is a web application built with ASP.NET Core, Entity
 - Storage of images and documents in Azure Blob Storage.
 - Monitoring and diagnostics with Azure Application Insights.
 
-## Getting Started
+## Getting Started with Docker
 
 This guide will help you set up the Event Management API project on your local machine for development and testing purposes.
 
@@ -46,6 +47,7 @@ Before you begin, ensure you have the following installed on your system:
 
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
 - [PostgreSQL](https://www.postgresql.org/download/)
+- [Docker](https://www.docker.com/)
 - [Azure](https://learn.microsoft.com/en-us/azure/?product=popular)
 
 ### Configuration
@@ -69,7 +71,7 @@ Before you begin, ensure you have the following installed on your system:
 
 4. **Update Configuration Files**
 
-   Copy `appsettings.json` to `appsettings.Development.json` and update the necessary fields:
+   Create `appsettings.json` and copy to `appsettings.Development.json` and update the necessary fields:
 
    ```json
    {
@@ -119,25 +121,33 @@ Before you begin, ensure you have the following installed on your system:
 
 5. **Run Database Migrations**
 
-   Ensure your database is set up correctly:
-
-   ```sh
-   dotnet ef database update
-   ```
-
-6. **Azure Functions**
-
-This project also utilizes Azure Functions for certain tasks. You can find the related repository [here](https://github.com/VictoriiaShtyreva/EventManagementFunctionApp).
-
-### Running the Application
-
-To run the application, use the following command:
+Ensure your database is set up correctly:
 
 ```sh
-dotnet run
+dotnet ef database update
 ```
 
-This will start the application and you can access the API at `https://localhost:5001`.
+6. **Build the Docker Image**
+
+Open a terminal, navigate to the root directory of your project, and run the following command to build the Docker image:
+
+```sh
+docker build -t event-management-api .
+```
+
+7. **Run the Docker Container**
+
+Run the following command to start the container:
+
+```sh
+docker run -d -p 8080:80 event-management-api
+```
+
+This will start the container and map port 8080 on your host to port 80 in the container.
+
+8. **Access the Application**
+
+Open your web browser and navigate to `http://localhost:8080` to see your application running.
 
 ## Database Structure
 
